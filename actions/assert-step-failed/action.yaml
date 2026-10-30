@@ -1,0 +1,26 @@
+name: "Assert Step Failed"
+description: "Fails the workflow if the specified previous step did not fail."
+inputs:
+  outcome:
+    description: "The outcome of the step to assert ('failure' expected)."
+    required: true
+  error-message:
+    description: "Custom error message to display if the step did not fail as expected."
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Assert that the specified step failed
+      shell: bash
+      run: |
+        OUTCOME="${{ inputs.outcome }}"
+        echo "OUTCOME: [$OUTCOME]"
+
+        ERROR_MSG="${{ inputs.error-message }}"
+
+        if [ "$OUTCOME" != "failure" ]; then
+          echo "Error: $ERROR_MSG (actual outcome: '$OUTCOME')." >&2
+          exit 1
+        fi
+
+        echo "Assertion passed: step failed as expected."

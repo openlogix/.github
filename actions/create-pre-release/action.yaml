@@ -1,0 +1,68 @@
+name: Create GitHub Pre-release
+description: >-
+  Creates a GitHub pre-release with the specified tag,
+  optional release notes from a file,
+  and exactly the provided files as assets.
+
+  Fails if a release with the tag already exists
+  (whether pre-release or stable) to prevent duplicates.
+inputs:
+  release_tag:
+    description: Tag name for the release (e.g. v1.2.3-rc.1)
+    required: true
+
+  body_path:
+    description: Path to a text file containing the release notes/body (optional). If not provided, the release body will be empty.
+    required: false
+    default: ""
+
+  files:
+    description: List of files to upload (newline-separated paths)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Verify release body file
+      shell: bash
+      run: |
+        body_path="${{ inputs.body_path }}"
+
+        if [ -z "$body_path" ]; then
+          echo "No body_path provided. The release will have an empty body."
+        elif [ -f "$body_path" ]; then
+          echo "Body file '$body_path' exists and will be used."
+        else
+          echo "::error ::The specified body_path file '$body_path' does not exist."
+          exit 1
+        fi
+
+    - name: Check if release already exists
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        # The calling repo, so no checkout is needed.
+        GH_REPO: ${{ github.repository }}
+      run: |
+        release_tag="${{ inputs.release_tag }}"
+
+        echo "Checking if release with tag '$release_tag' already exists..."
+
+        if gh release view "$release_tag" > /dev/null 2>&1; then
+          echo "::error ::A release with tag '$release_tag' already exists. Aborting to prevent duplicate."
+          exit 1
+        else
+          echo "No existing release found for tag '$release_tag'. Proceeding..."
+        fi
+
+    - name: Create pre-release
+      uses: softprops/action-gh-release@v3.0.3
+      with:
+        tag_name: ${{ inputs.release_tag }}
+        name: ${{ inputs.release_tag }}
+        body_path: ${{ inputs.body_path }}
+        prerelease: true
+        fail_on_unmatched_files: true
+        preserve_order: true
+        generate_release_notes: false
+        files: ${{ inputs.files }}

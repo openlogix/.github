@@ -1,0 +1,546 @@
+# Tests the shared actions in actions/. Each job runs one action and
+# compares the result with what's expected. Expected failures use
+# continue-on-error plus the assert-step-failed action.
+#
+# This repo has no releases of its own, so test-release-actions also tests
+# the actions that change releases, using test releases it creates and
+# deletes.
+
+name: actions-test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Daily at the start of the UTC day, to catch breakage from changes in
+    # the runners or in the tools the actions use (gh, jq, ClamAV, npm).
+    - cron: "0 0 * * *"
+
+permissions:
+  contents: read
+
+# A newer run for the same branch or PR replaces an older one.
+concurrency:
+  group: actions-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -- Test action get-release-and-package-tags
+  test-get-release-and-package-tags:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Get release and package tags
+        uses: ./actions/get-release-and-package-tags
+        with:
+          release-tag-var: RELEASE_TAG
+          package-tag-var: PACKAGE_TAG
+
+      - name: Verify release and package tags.
+        run: |
+          echo "RELEASE_TAG: $RELEASE_TAG"
+          if [ "$RELEASE_TAG" != "$(date '+%Y-%m-%d')" ]; then
+             echo "Error: Incorrect RELEASE_TAG"
+             exit 1
+          fi
+          echo "RELEASE_TAG is OK"
+
+          echo "PACKAGE_TAG: $PACKAGE_TAG"
+          if [ "$PACKAGE_TAG" != "$(date '+%Y%m%d')" ]; then
+             echo "Error: Incorrect PACKAGE_TAG"
+             exit 1
+          fi
+          echo "PACKAGE_TAG is OK"
+
+  # -- Test action check-platform
+  test-check-platform:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Test platform match
+        uses: ./actions/check-platform
+        with:
+          os: linux
+          arch: x86_64
+
+      # NOTE: Having this step failing is the expected and normal behavior.
+      # Ignore the failure annotation that it leaves with in the workflow logs.
+      - name: Test platform mismatch
+        id: platform-mismatch
+        continue-on-error: true
+        uses: ./actions/check-platform
+        with:
+          os: xyz
+          arch: x86_64
+
+      - name: Assert that previous step failed
+        uses: ./actions/assert-step-failed
+        with:
+          outcome: ${{ steps.platform-mismatch.outcome }}
+          error-message: "The previous step did not fail as expected"
+
+  # -- Test action format-json-file
+  test-format-json-file:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Create actual json file
+        run: |
+          cat << EOF > actual.json
+          {
+            "name": "example-project",
+            "version": "1.0.0"
+          }
+          EOF
+
+          cat -n actual.json
+
+      - name: Format the actual file in-place
+        uses: ./actions/format-json-file
+        with:
+          json-file: actual.json
+
+      - name: Create the expected file
+        run: |
+          cat << EOF > expected.json
+          {
+            "name"    : "example-project",
+            "version" : "1.0.0"
+          }
+          EOF
+
+          cat -n expected.json
+
+      - name: Compare the expected and the actual files
+        run: |
+          echo "Expected:"
+          cat expected.json
+          echo
+          echo "Actual:"
+          cat actual.json
+          echo
+          echo "Differences:"
+          diff expected.json actual.json
+
+  # -- Test action json-to-text
+  test-json-to-text:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Create the input json file
+        run: |
+          cat << EOF > input.json
+          {
+            "name": "example-project",
+            "version": "1.0.0"
+          }
+          EOF
+
+          cat -n input.json
+
+      - name: Convert json to text
+        uses: ./actions/json-to-text
+        with:
+          input-json: input.json
+          output-text: actual.txt
+
+      - name: Create the expected file
+        run: |
+          cat << EOF > expected.txt
+          name      : example-project
+          version   : 1.0.0
+          EOF
+
+          cat -n expected.txt
+
+      - name: Compare the expected and the actual files
+        run: |
+          echo "Expected:"
+          cat expected.txt
+          echo
+          echo "Actual:"
+          cat actual.txt
+          echo
+          echo "Differences:"
+          diff expected.txt actual.txt
+
+  # -- Test action write-to-json-file
+  test-write-to-json-file:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Create the input json file
+        run: |
+          cat << EOF > actual.json
+          {
+            "name": "example-project",
+            "version": "1.0.0"
+          }
+          EOF
+
+          cat -n actual.json
+
+      - name: Add a property to the json file
+        uses: ./actions/write-to-json-file
+        with:
+          json-file: actual.json
+          key: test-key1
+          value: test-value1
+
+      - name: Overwrite a property in the json file
+        uses: ./actions/write-to-json-file
+        with:
+          json-file: actual.json
+          key: version
+          value: 2.0.0
+
+      - name: Create the expected json file
+        run: |
+          cat << EOF > expected.json
+          {
+            "name": "example-project",
+            "version": "2.0.0",
+            "test-key1": "test-value1"
+          }
+          EOF
+
+          cat -n expected.json
+
+      - name: Compare the expected and the actual files
+        run: |
+          echo "Expected:"
+          cat expected.json
+          echo
+          echo "Actual:"
+          cat actual.json
+          echo
+          echo "Differences:"
+          diff expected.json actual.json
+
+  # -- Test action set-env-from-json
+  test-set-env-from-json:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Create the input json file
+        run: |
+          cat << EOF > data.json
+          {
+            "description": "Test file",
+            "version": "1.0.0",
+            "name": "example-project"
+          }
+          EOF
+
+          cat -n data.json
+
+      - name: Set envs vars from json
+        uses: ./actions/set-env-from-json
+        with:
+          json-file: data.json
+          mappings: >-
+            JSON_NAME      name
+            JSON_VERSION   version
+
+      - name: Check extracted vars
+        run: |
+          echo "JSON_NAME: [$JSON_NAME]"
+          if [ "$JSON_NAME" != "example-project" ]; then
+             echo "Error: Got an unexpected JSON_NAME value" >&2
+             exit 1
+          fi
+
+          echo "JSON_VERSION: [$JSON_VERSION]"
+          if [ "$JSON_VERSION" != "1.0.0" ]; then
+             echo "Error: Got an unexpected JSON_VERSION value" >&2
+             exit 1
+          fi
+
+  # -- Test action get-repo-info
+  test-get-repo-info:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Check out this repo's main branch in a subfolder
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          path: test-repo
+
+      - name: Get repo info
+        uses: ./actions/get-repo-info
+        with:
+          repo-dir: test-repo
+          repo-var: REPO
+          branch-var: REPO_BRANCH
+          commit-var: REPO_COMMIT
+
+      - name: Check extracted repo name
+        run: |
+          echo "REPO: [$REPO]"
+          EXPECTED_REPO="$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')"
+          echo "EXPECTED_REPO: [$EXPECTED_REPO]"
+          if [ "$REPO" != "$EXPECTED_REPO" ]; then
+             echo "Error: Got an unexpected repo" >&2
+             exit 1
+          fi
+
+      - name: Check extracted repo branch
+        run: |
+          echo "REPO_BRANCH: [$REPO_BRANCH]"
+          EXPECTED_REPO_BRANCH="main"
+          echo "EXPECTED_REPO_BRANCH: [$EXPECTED_REPO_BRANCH]"
+          if [ "$REPO_BRANCH" != "$EXPECTED_REPO_BRANCH" ]; then
+             echo "Error: Got an unexpected repo branch" >&2
+             exit 1
+          fi
+
+      - name: Check extracted repo commit
+        run: |
+          echo "REPO_COMMIT: [$REPO_COMMIT]"
+          EXPECTED_REPO_COMMIT=$(git -C test-repo rev-parse HEAD)
+          echo "EXPECTED_REPO_COMMIT: [$EXPECTED_REPO_COMMIT]"
+          if [ "$REPO_COMMIT" != "$EXPECTED_REPO_COMMIT" ]; then
+             echo "Error: Got an unexpected repo commit" >&2
+             exit 1
+          fi
+
+  # -- Test action scan-files-for-viruses
+  test-scan-files-for-viruses:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - scenario: clean
+            data: I am clean
+            expected: success
+          - scenario: dirty
+            data: X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*
+            expected: failure
+
+    name: Test scan-files-for-viruses (${{ matrix.scenario }})
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Create a file with no virus
+        run: |
+          echo 'hello world' > good.txt
+          cat -n good.txt
+
+      # The dirty data which triggers the virus scanner is based on
+      # https://en.wikipedia.org/wiki/EICAR_test_file
+      - name: Create a file with a potential virus
+        run: |
+          echo '${{matrix.data}}' > suspect.txt
+          cat -n suspect.txt
+
+      - name: Scan for viruses
+        id: virus-scan
+        continue-on-error: true
+        uses: ./actions/scan-files-for-viruses
+        with:
+          file-patterns: good.* suspect.*
+
+      - name: Assert scan outcome matches expectation
+        # if: always()  # Ensures this runs even if the scan step failed
+        run: |
+          ACTUAL_OUTCOME="${{ steps.virus-scan.outcome }}"
+          echo "ACTUAL_OUTCOME: [$ACTUAL_OUTCOME]"
+
+          EXPECTED_OUTCOME="${{ matrix.expected }}"
+          echo "EXPECTED_OUTCOME: [$EXPECTED_OUTCOME]"
+
+          if [ "$ACTUAL_OUTCOME" != "$EXPECTED_OUTCOME" ]; then
+            echo "Error: Expected scan outcome '$EXPECTED_OUTCOME' but got '$ACTUAL_OUTCOME' (scenario: ${{ matrix.scenario }})." >&2
+            exit 1
+          fi
+
+          echo "Scan outcome correct: $ACTUAL_OUTCOME (expected $EXPECTED_OUTCOME)."
+
+  # -- Test the actions that change releases: ensure-no-conflicting-release,
+  # create-pre-release and cleanup-old-prereleases.
+  test-release-actions:
+    runs-on: ubuntu-latest
+    # Skipped for pull requests from forks, whose token can't change releases.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write
+    # One run at a time across all branches, since cleanup-old-prereleases
+    # acts on all of this repo's pre-releases.
+    concurrency:
+      group: test-release-actions
+      cancel-in-progress: false
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      # All test releases start with "test-". Unique per run.
+      TAG: test-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Delete test releases left by earlier runs
+        run: |
+          gh release list --limit 1000 --json tagName \
+            --jq '.[].tagName | select(startswith("test-"))' |
+          while read -r tag; do
+            echo "Deleting $tag"
+            gh release delete "$tag" --yes --cleanup-tag
+          done
+
+      - name: Create the release files
+        run: |
+          echo "Test release notes" > notes.md
+          echo "Test asset" > asset.txt
+
+      # ensure-no-conflicting-release, no release with that tag.
+      - name: Ensure no conflict for a tag with no release
+        uses: ./actions/ensure-no-conflicting-release
+        with:
+          release-tag: ${{ env.TAG }}-a
+
+      # create-pre-release, new tag.
+      - name: Create a pre-release
+        uses: ./actions/create-pre-release
+        with:
+          release_tag: ${{ env.TAG }}-a
+          body_path: notes.md
+          files: asset.txt
+
+      - name: Check the pre-release
+        run: |
+          gh release view "$TAG-a" --json isPrerelease,name,body,assets > release.json
+          cat release.json
+          jq -e '.isPrerelease == true' release.json
+          jq -e --arg tag "$TAG-a" '.name == $tag' release.json
+          jq -e '.body | contains("Test release notes")' release.json
+          jq -e '[.assets[].name] == ["asset.txt"]' release.json
+
+      # create-pre-release, existing tag: must fail.
+      - name: Create the same pre-release again
+        id: create-again
+        continue-on-error: true
+        uses: ./actions/create-pre-release
+        with:
+          release_tag: ${{ env.TAG }}-a
+          files: asset.txt
+
+      - name: Assert that creating it again failed
+        uses: ./actions/assert-step-failed
+        with:
+          outcome: ${{ steps.create-again.outcome }}
+          error-message: "Creating an existing release did not fail as expected"
+
+      # ensure-no-conflicting-release, pre-release, just-check: keeps it.
+      - name: Just check a tag with a pre-release
+        uses: ./actions/ensure-no-conflicting-release
+        with:
+          release-tag: ${{ env.TAG }}-a
+          just-check: "true"
+
+      - name: Check the pre-release was kept
+        run: gh release view "$TAG-a" --json tagName
+
+      # ensure-no-conflicting-release, pre-release: deletes it and its tag.
+      - name: Ensure no conflict for a tag with a pre-release
+        uses: ./actions/ensure-no-conflicting-release
+        with:
+          release-tag: ${{ env.TAG }}-a
+
+      - name: Check the pre-release and its tag were deleted
+        run: |
+          if gh release view "$TAG-a" > /dev/null 2>&1; then
+            echo "Error: the pre-release still exists" >&2
+            exit 1
+          fi
+          if [ -n "$(git ls-remote --tags origin "refs/tags/$TAG-a")" ]; then
+            echo "Error: the tag still exists" >&2
+            exit 1
+          fi
+          echo "Deleted as expected"
+
+      # ensure-no-conflicting-release, stable release: must fail and keep it.
+      - name: Create a stable release
+        run: gh release create "$TAG-stable" --title "$TAG-stable" --notes "Test" --latest=false
+
+      - name: Ensure no conflict for a tag with a stable release
+        id: stable-conflict
+        continue-on-error: true
+        uses: ./actions/ensure-no-conflicting-release
+        with:
+          release-tag: ${{ env.TAG }}-stable
+
+      - name: Assert that the stable release was protected
+        uses: ./actions/assert-step-failed
+        with:
+          outcome: ${{ steps.stable-conflict.outcome }}
+          error-message: "A stable release did not stop the run as expected"
+
+      - name: Check the stable release was kept
+        run: gh release view "$TAG-stable" --json tagName
+
+      # cleanup-old-prereleases: keeps the 5 newest pre-releases, deletes the
+      # older ones with their tags, and leaves stable releases and drafts.
+      - name: Create 7 pre-releases and a draft
+        run: |
+          for i in 1 2 3 4 5 6 7; do
+            gh release create "$TAG-p$i" --title "$TAG-p$i" --notes "Test" --prerelease
+            # Distinct publish times, so the order is certain.
+            sleep 2
+          done
+          gh release create "$TAG-draft" --title "$TAG-draft" --notes "Test" --prerelease --draft
+
+      - name: Clean up old pre-releases
+        uses: ./actions/cleanup-old-prereleases
+
+      - name: Check what was kept and deleted
+        run: |
+          gh release list --limit 1000 --json tagName \
+            --jq '[.[].tagName | select(startswith(env.TAG))] | sort | .[]' > actual.txt
+          printf '%s\n' "$TAG-draft" "$TAG-p3" "$TAG-p4" "$TAG-p5" "$TAG-p6" "$TAG-p7" "$TAG-stable" | sort > expected.txt
+          echo "Expected:"; cat expected.txt
+          echo "Actual:"; cat actual.txt
+          diff expected.txt actual.txt
+          for i in 1 2; do
+            if [ -n "$(git ls-remote --tags origin "refs/tags/$TAG-p$i")" ]; then
+              echo "Error: tag $TAG-p$i still exists" >&2
+              exit 1
+            fi
+          done
+
+      - name: Delete this run's test releases
+        if: always()
+        run: |
+          gh release list --limit 1000 --json tagName \
+            --jq '.[].tagName | select(startswith(env.TAG))' |
+          while read -r tag; do
+            echo "Deleting $tag"
+            gh release delete "$tag" --yes --cleanup-tag
+          done
