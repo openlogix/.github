@@ -412,7 +412,9 @@ jobs:
             --jq '.[].tagName | select(startswith("test-"))' |
           while read -r tag; do
             echo "Deleting $tag"
-            gh release delete "$tag" --yes --cleanup-tag
+            gh release delete "$tag" --yes
+            # A draft has no tag, so the tag is deleted separately.
+            gh api -X DELETE "repos/$GH_REPO/git/refs/tags/$tag" 2>/dev/null || true
           done
 
       - name: Create the release files
@@ -542,5 +544,7 @@ jobs:
             --jq '.[].tagName | select(startswith(env.TAG))' |
           while read -r tag; do
             echo "Deleting $tag"
-            gh release delete "$tag" --yes --cleanup-tag
+            gh release delete "$tag" --yes
+            # A draft has no tag, so the tag is deleted separately.
+            gh api -X DELETE "repos/$GH_REPO/git/refs/tags/$tag" 2>/dev/null || true
           done

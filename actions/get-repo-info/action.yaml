@@ -37,8 +37,9 @@ runs:
         fi
 
         # Get origin repo name normalized to lower case (e.g. "openlogix/logix-ide")
+        # Repo names may contain dots (e.g. ".github", "openlogix.github.io").
         origin=$(git -C "$repo_dir" remote get-url origin)
-        if [[ "$origin" =~ ^https://github\.com/([^/]+)/([^/.]+)(\.git)?$ ]]; then
+        if [[ "${origin%.git}" =~ ^https://github\.com/([^/]+)/([^/]+)$ ]]; then
           repo="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
         else
           echo "Error: origin must be https://github.com/owner/repo[.git]: $origin"
