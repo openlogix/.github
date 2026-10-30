@@ -6,7 +6,8 @@ Guidance for Claude working in this repo, `openlogix/.github`. It is GitHub's sp
 
 - `actions/<name>/action.yaml`: composite GitHub Actions shared by the Open Logix repos' CI and release workflows. [README.md](README.md) lists them.
 - `.github/workflows/actions-test.yaml`: tests the actions.
-- Later, possibly: `profile/README.md` (shown on github.com/openlogix), default community files (`CONTRIBUTING.md`, `SECURITY.md`, issue templates) and `workflow-templates/`. Add them only when asked.
+- `profile/README.md`: the org page at github.com/openlogix. A table of all Open Logix repos for developers: repo, what it is, status. The repo list, descriptions and statuses follow the website repo's `CLAUDE.md` (Repos, Availability); when those change, update this table too.
+- Later, possibly: default community files (`CONTRIBUTING.md`, `SECURITY.md`, issue templates) and `workflow-templates/`. Add them only when asked.
 
 Don't put product-owned things here, such as the engine's tool schemas or catalog. They stay in their product repo.
 

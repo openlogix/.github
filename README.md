@@ -4,6 +4,10 @@ Shared GitHub Actions and org-wide files for the [Open Logix](https://www.openlo
 
 This is an internal repo. It makes nothing for users. It holds pieces that the workflows of several Open Logix repos use, so each fix is made once.
 
+## Org page
+
+[profile/README.md](profile/README.md) is shown on [github.com/openlogix](https://github.com/openlogix). It lists the Open Logix repos.
+
 ## Actions
 
 Composite actions in [actions/](actions), used from another repo's workflow like this:
