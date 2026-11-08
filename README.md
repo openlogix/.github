@@ -43,4 +43,4 @@ Workflows use the `v1` tag. It moves forward when changes are tested, so fixes r
 
 ## License
 
-[Apache-2.0](LICENSE).
+[MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
