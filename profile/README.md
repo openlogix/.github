@@ -8,7 +8,7 @@ Easy-to-use open source tools for FPGA design. All built on one engine. [www.ope
 | --- | --- | --- |
 | [logix-engine](https://github.com/openlogix/logix-engine) | Logix Engine. One open engine to build and test FPGA designs and program boards, for any IDE or AI agent. Every other product runs on it | In development |
 | [logix-catalog](https://github.com/openlogix/logix-catalog) | Logix Catalog. "Every FPGA board, described once." Open board data for every Logix tool and any other project | In development |
-| [logix-ide](https://github.com/openlogix/logix-ide) | Logix IDE. "The Arduino experience, for FPGAs." | Previews available |
+| [logix-ide](https://github.com/openlogix/logix-ide) | Logix IDE. The Arduino experience, for FPGAs. | Previews available |
 | [logix-ai](https://github.com/openlogix/logix-ai) | Logix AI. AI agents that design and test FPGA logic and program the board | In development |
 | [logix-cli](https://github.com/openlogix/logix-cli) | Logix CLI. Build and test FPGA designs and program boards from the command line | Planned |
 | [logix-vscode](https://github.com/openlogix/logix-vscode) | Logix VSCode. The full FPGA workflow inside VS Code | Planned |
