@@ -15,7 +15,7 @@ Don't put product-owned things here, such as the engine's tool schemas or catalo
 
 - Composite actions, `bash` unless noted. Every input has a description.
 - Self-contained: an action never uses files from the calling repo's checkout unless an input names them. Actions that call `gh` set `GH_REPO: ${{ github.repository }}`, so they work in jobs with no checkout.
-- Callers use `openlogix/.github/actions/<name>@v1`.
+- Callers use `openlogix/.github/actions/<name>@main` (see Versions).
 
 - **What goes here** (the website repo's `CLAUDE.md`, Shared CI): any workflow step or job that two Open Logix repos do the same way is an action or a reusable workflow here, never copied between repos. Actions are task-sized (a whole job's shared part), so a repo's workflow keeps only what's its own.
 
@@ -28,7 +28,7 @@ Action details:
 - `check-platform`: `os` is a substring of `uname -o`, `arch` equals `uname -m`, case-insensitive.
 - `scan-files-for-viruses`: `file-patterns`; each pattern must match a file; ClamAV with `freshclam`, scans inside archives.
 - `assert-step-failed`: `outcome`, `error-message`; for testing expected failures.
-- `.github/workflows/publish-docs.yaml`: a reusable workflow (`workflow_call`) that builds a repo's MkDocs site with `--strict` and deploys it to its GitHub Pages. Callers keep the triggers, the Pages permissions and the `pages` concurrency group, and call `openlogix/.github/.github/workflows/publish-docs.yaml@v1`.
+- `.github/workflows/publish-docs.yaml`: a reusable workflow (`workflow_call`) that builds a repo's MkDocs site with `--strict` and deploys it to its GitHub Pages. Callers keep the triggers, the Pages permissions and the `pages` concurrency group, and call `openlogix/.github/.github/workflows/publish-docs.yaml@main`.
 
 ## Tests
 
@@ -38,9 +38,9 @@ This repo has no releases of its own, so `test-publish-pre-release` tests the re
 
 ## Versions
 
-- Callers pin the major tag `v1`. After a change passes `actions-test` on `main`, move the tag: `git tag -f v1 && git push -f origin v1`. Moving `v1` changes every caller's CI right away, so check with the user first.
-- During initial development (no backward compatibility, the website repo's `CLAUDE.md`), a change that breaks callers moves `v1` too, and every caller is updated in the same go. After the first releases, a breaking change gets `v2`, and `v1` keeps working until the callers move.
+- Callers use the latest actions: `openlogix/.github/actions/<name>@main` (and the docs workflow `@main`), with no version tags, for simplicity (as Apio does). A push to `main` here changes every caller's CI right away, so run `actions-test` first: on a branch, or check its result right after the push and fix forward.
+- During initial development (no backward compatibility, the website repo's `CLAUDE.md`), a change that breaks callers updates every caller in the same go.
 
 ## Conventions
 
-Use the current major versions of GitHub's actions (`actions/checkout`), and an exact version of any third-party action. Commit freely; pushes to `main` affect only this repo's tests until `v1` moves.
+Use the current major versions of GitHub's actions (`actions/checkout`), and an exact version of any third-party action. Pushes to `main` reach every caller right away (see Versions).

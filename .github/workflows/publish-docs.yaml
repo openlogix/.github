@@ -6,7 +6,7 @@
 #
 #   jobs:
 #     publish:
-#       uses: openlogix/.github/.github/workflows/publish-docs.yaml@v1
+#       uses: openlogix/.github/.github/workflows/publish-docs.yaml@main
 
 name: publish-docs
 

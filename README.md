@@ -22,11 +22,11 @@ This is an internal repo. It makes nothing for users. It holds pieces that the w
 Composite actions in [actions/](actions), and one reusable workflow, used from the other repos' workflows. A release workflow, for example:
 
 ```yaml
-- uses: openlogix/.github/actions/start-pre-release@v1      # first job
+- uses: openlogix/.github/actions/start-pre-release@main      # first job
   with:
     package-name: logix-catalog
     description: Logix Catalog's boards and FPGAs, as Logix Engine downloads them.
-- uses: openlogix/.github/actions/publish-pre-release@v1    # last job
+- uses: openlogix/.github/actions/publish-pre-release@main    # last job
   with:
     title: "Logix Catalog: Every FPGA board, described once."
     engine-note: catalog
@@ -49,7 +49,7 @@ The pre-release policy (pre-releases are kept about 5 days unless made stable) i
 
 ## Versions
 
-Workflows use the `v1` tag. It moves forward when changes are tested, so fixes reach every repo without edits. A change that would break existing workflows gets a new major tag, `v2`.
+Workflows use the latest version, `@main`, so a fix reaches every repo as soon as it's pushed. Changes are tested by [actions-test.yaml](.github/workflows/actions-test.yaml).
 
 ## License
 
