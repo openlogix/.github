@@ -178,6 +178,37 @@ jobs:
           diff expected.txt actual.txt
 
   # -- Test action write-to-json-file
+  test-write-release-about:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Write the section, with two extra bullets
+        uses: ./actions/write-release-about
+        with:
+          output-file: actual.md
+          extra-bullets: |
+            First extra.
+
+            Second extra.
+
+      - name: Create the expected file
+        run: |
+          source actions/release-policy.sh
+          cat << EOF > expected.md
+          ### About these releases
+
+          - These are pre-releases: development builds, made daily. Only the ${PRERELEASE_KEEP} newest are kept, so each one is deleted after about ${PRERELEASE_KEEP} days, unless it's made stable.
+          - First extra.
+          - Second extra.
+          - To make a pre-release stable, edit it and change its status from \`Pre-release\` to \`None\`.
+          EOF
+
+      - name: Compare the expected and the actual files
+        run: diff expected.md actual.md
+
   test-write-to-json-file:
     runs-on: ubuntu-latest
 
@@ -508,7 +539,8 @@ jobs:
       - name: Check the stable release was kept
         run: gh release view "$TAG-stable" --json tagName
 
-      # cleanup-old-prereleases: keeps the 5 newest pre-releases, deletes the
+      # cleanup-old-prereleases: keeps the 5 newest pre-releases (the policy
+      # in actions/release-policy.sh; this test assumes 5), deletes the
       # older ones with their tags, and leaves stable releases and drafts.
       - name: Create 7 pre-releases and a draft
         run: |

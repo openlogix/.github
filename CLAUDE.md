@@ -21,8 +21,9 @@ Action details:
 
 - `get-release-and-package-tags`: env var names in (`release-tag-var`, `package-tag-var`); today's UTC date as `yyyy-mm-dd` and `yyyymmdd`.
 - `ensure-no-conflicting-release`: `release-tag`, `just-check`. Deletes a same-tag pre-release and its tag unless just checking; fails on a stable one; no release is fine.
-- `cleanup-old-prereleases`: keeps the 5 newest non-draft pre-releases, deletes the others with their tags. Stable releases and drafts are untouched.
-- `create-pre-release`: `release_tag`, `body_path`, `files`. Name = tag. Fails if the tag exists; a missing file fails the run.
+- `cleanup-old-prereleases`: keeps the newest non-draft pre-releases (`PRERELEASE_KEEP` in `actions/release-policy.sh`, 5), deletes the others with their tags. Stable releases and drafts are untouched.
+- `write-release-about`: `output-file`, `extra-bullets` (optional, one per line). Writes the standard "About these releases" section of a release text (website repo's `CLAUDE.md`, Release text is user facing), stating the same policy. `actions/release-policy.sh` is the one place the pre-release policy is set: both actions read it.
+- `create-pre-release`: `release_tag`, `body_path`, `files`, `target-commit` (optional, default the workflow's commit, so the tag names the commit that was built). Name = tag. Fails if the tag exists; a missing file fails the run.
 - `get-repo-info`: `repo-dir`, optional `repo-var`/`branch-var`/`commit-var`. Repo is lowercase `owner/repo`; branch is `detached` for a detached HEAD; origin must be `https://github.com/owner/repo[.git]`.
 - `check-platform`: `os` is a substring of `uname -o`, `arch` equals `uname -m`, case-insensitive.
 - `write-to-json-file`: `json-file`, `key`, string `value`, with `jq`.

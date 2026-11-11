@@ -1,0 +1,38 @@
+name: "Write Release About"
+description: >-
+  Writes the "About these releases" section of a release text, the same in
+  every Open Logix repo: pre-releases are daily development builds, only the
+  newest ones are kept (the number is the policy in release-policy.sh, which
+  cleanup-old-prereleases applies), and how to make one stable. Optional
+  repo-specific bullets go before the last one.
+
+inputs:
+  output-file:
+    description: "The Markdown file to write."
+    required: true
+  extra-bullets:
+    description: "Optional repo-specific bullets, one per line, without the leading '- '."
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Write the section
+      shell: bash
+      env:
+        OUTPUT_FILE: ${{ inputs.output-file }}
+        EXTRA_BULLETS: ${{ inputs.extra-bullets }}
+      run: |
+        set -euo pipefail
+        source "${{ github.action_path }}/../release-policy.sh"
+        {
+          echo "### About these releases"
+          echo
+          echo "- These are pre-releases: development builds, made daily. Only the ${PRERELEASE_KEEP} newest are kept, so each one is deleted after about ${PRERELEASE_KEEP} days, unless it's made stable."
+          while IFS= read -r line; do
+            [[ -n "${line// }" ]] && echo "- ${line}"
+          done <<< "$EXTRA_BULLETS"
+          echo "- To make a pre-release stable, edit it and change its status from \`Pre-release\` to \`None\`."
+        } > "$OUTPUT_FILE"
+        cat -n "$OUTPUT_FILE"

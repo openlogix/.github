@@ -33,7 +33,8 @@ Composite actions in [actions/](actions), used from another repo's workflow like
 | --- | --- |
 | `get-release-and-package-tags` | Today's release tag `yyyy-mm-dd` and package tag `yyyymmdd`, into env vars |
 | `ensure-no-conflicting-release` | Deletes a pre-release with the given tag, or fails if a stable release has it |
-| `cleanup-old-prereleases` | Keeps the 5 newest pre-releases and deletes the rest with their tags |
+| `cleanup-old-prereleases` | Keeps the newest pre-releases (5, the policy in `actions/release-policy.sh`) and deletes the rest with their tags |
+| `write-release-about` | Writes a release text's standard "About these releases" section, with the same policy |
 | `create-pre-release` | Creates a pre-release with release notes and exactly the given files |
 | `get-repo-info` | Repo `owner/repo`, branch and commit of a checked-out repo |
 | `check-platform` | Fails unless the runner has the given OS and architecture |

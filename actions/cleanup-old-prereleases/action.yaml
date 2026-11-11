@@ -1,7 +1,8 @@
 name: "Cleanup Old Pre-Releases"
 description: >-
   Cleanup old pre-releases while preserving all stable releases, drafts,
-  and the KEEP most recent pre-releases. The value KEEP is a constant.
+  and the most recent pre-releases: as many as PRERELEASE_KEEP in
+  release-policy.sh, the one place the policy is set.
 
 # inputs:
 #   pre-release-keep-count:
@@ -32,10 +33,11 @@ runs:
         GH_TOKEN: ${{ github.token }}
         # The calling repo, so no checkout is needed.
         GH_REPO: ${{ github.repository }}
-        KEEP: 5
       shell: bash
       run: |
         set -euo pipefail
+        source "${{ github.action_path }}/../release-policy.sh"
+        KEEP=$PRERELEASE_KEEP
 
         mapfile -t tags < <(
           gh release list --limit 1000 \
