@@ -1,5 +1,7 @@
 # Open Logix shared repo
 
+[![test](https://img.shields.io/github/actions/workflow/status/openlogix/.github/actions-test.yaml?branch=main&label=test)](https://github.com/openlogix/.github/actions/workflows/actions-test.yaml)
+
 Shared GitHub Actions and org-wide files for the [Open Logix](https://www.openlogix.org) repos.
 
 This is an internal repo. It makes nothing for users. It holds pieces that the workflows of several Open Logix repos use, so each fix is made once.
