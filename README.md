@@ -19,31 +19,31 @@ This is an internal repo. It makes nothing for users. It holds pieces that the w
 
 ## Actions
 
-Composite actions in [actions/](actions), used from another repo's workflow like this:
+Composite actions in [actions/](actions), and one reusable workflow, used from the other repos' workflows. A release workflow, for example:
 
 ```yaml
-- name: Get the release and package tags
-  uses: openlogix/.github/actions/get-release-and-package-tags@v1
+- uses: openlogix/.github/actions/start-pre-release@v1      # first job
   with:
-    release-tag-var: RELEASE_TAG
-    package-tag-var: PACKAGE_TAG
+    package-name: logix-catalog
+    description: Logix Catalog's boards and FPGAs, as Logix Engine downloads them.
+- uses: openlogix/.github/actions/publish-pre-release@v1    # last job
+  with:
+    title: "Logix Catalog: Every FPGA board, described once."
+    engine-note: catalog
+    files: _out/logix-catalog-${{ env.PACKAGE_TAG }}.tgz
 ```
 
 | Action | What it does |
 | --- | --- |
-| `get-release-and-package-tags` | Today's release tag `yyyy-mm-dd` and package tag `yyyymmdd`, into env vars |
-| `ensure-no-conflicting-release` | Deletes a pre-release with the given tag, or fails if a stable release has it |
-| `cleanup-old-prereleases` | Keeps the newest pre-releases (5, the policy in `actions/release-policy.sh`) and deletes the rest with their tags |
-| `write-release-about` | Writes a release text's standard "About these releases" section, with the same policy |
-| `create-pre-release` | Creates a pre-release with release notes and exactly the given files |
-| `get-repo-info` | Repo `owner/repo`, branch and commit of a checked-out repo |
+| `start-pre-release` | A release workflow's start: today's tags, the stable-release check, `BUILD-INFO.json` |
+| `read-build-info` | Gets `BUILD-INFO.json` in a later job, with the platform, into env vars |
+| `publish-pre-release` | A release workflow's end: checksums, the standard release text, the day's pre-release made again from scratch, and the cleanup |
 | `check-platform` | Fails unless the runner has the given OS and architecture |
 | `scan-files-for-viruses` | Scans files, including inside archives, with ClamAV |
-| `write-to-json-file` | Sets a string value in a JSON file |
-| `format-json-file` | Formats a JSON file with aligned values |
-| `set-env-from-json` | Copies JSON values into env vars |
-| `json-to-text` | Turns a JSON file into aligned `key : value` lines |
 | `assert-step-failed` | Fails unless an earlier step failed, for testing expected failures |
+| [`publish-docs.yaml`](.github/workflows/publish-docs.yaml) (reusable workflow) | Builds a repo's MkDocs site and deploys it to its GitHub Pages |
+
+The pre-release policy (pre-releases are kept about 5 days unless made stable) is set in one place, [`actions/release-policy.sh`](actions/release-policy.sh).
 
 [actions-test.yaml](.github/workflows/actions-test.yaml) tests every action on each change and daily.
 

@@ -1,0 +1,83 @@
+name: "Start Pre-release"
+description: >-
+  The first job of an Open Logix build-pre-release workflow: today's release
+  tag (yyyy-mm-dd) and package tag (yyyymmdd), a check that no stable
+  release has that tag (a pre-release with it is replaced later, by
+  publish-pre-release), and BUILD-INFO.json, the build's description,
+  uploaded as the 'build-info' artifact for the other jobs (read-build-info).
+  Sets RELEASE_TAG, PACKAGE_TAG, REPO, REPO_BRANCH and REPO_COMMIT in the
+  environment, and the two tags as outputs. Run it after checking out the
+  repo.
+
+inputs:
+  package-name:
+    description: "BUILD-INFO.json's package-name, such as logix-engine."
+    required: true
+  description:
+    description: "BUILD-INFO.json's description, one sentence."
+    required: true
+  extra-fields:
+    description: "Optional JSON object of more fields, placed after the description (such as {\"engine-version\": \"...\"})."
+    required: false
+    default: "{}"
+
+outputs:
+  release-tag:
+    description: "Today's release tag, yyyy-mm-dd."
+    value: ${{ steps.info.outputs.release-tag }}
+  package-tag:
+    description: "Today's package tag, yyyymmdd, for file names."
+    value: ${{ steps.info.outputs.package-tag }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Tags, conflict check and build info
+      id: info
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        PACKAGE_NAME: ${{ inputs.package-name }}
+        DESCRIPTION: ${{ inputs.description }}
+        EXTRA_FIELDS: ${{ inputs.extra-fields }}
+      run: |
+        set -euo pipefail
+        release_tag="$(date -u +%Y-%m-%d)"
+        package_tag="${release_tag//-/}"
+        # A stable release is never replaced; a pre-release is, later.
+        if [[ "$(gh release view "$release_tag" --json isPrerelease --jq .isPrerelease 2>/dev/null || true)" == "false" ]]; then
+          echo "::error ::A stable release has the tag $release_tag. Aborting to protect it."
+          exit 1
+        fi
+        repo="${{ github.repository }}"
+        branch="${{ github.ref_name }}"
+        commit="${{ github.sha }}"
+        jq -n \
+          --arg name "$PACKAGE_NAME" --arg desc "$DESCRIPTION" --argjson extra "$EXTRA_FIELDS" \
+          --arg repo "$repo" --arg branch "$branch" --arg commit "$commit" \
+          --arg rtag "$release_tag" --arg ptag "$package_tag" \
+          --arg time "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
+          --arg wf "${{ github.workflow }}" --arg run_id "${{ github.run_id }}" --arg run_num "${{ github.run_number }}" \
+          '{"package-name": $name, "description": $desc} + $extra + {
+            "repo": $repo, "repo-branch": $branch, "repo-commit": $commit,
+            "release-tag": $rtag, "package-tag": $ptag, "build-time": $time,
+            "builder-workflow": $wf, "workflow-run-id": $run_id, "workflow-run-number": $run_num}' \
+          > BUILD-INFO.json
+        cat -n BUILD-INFO.json
+        {
+          echo "RELEASE_TAG=$release_tag"
+          echo "PACKAGE_TAG=$package_tag"
+          echo "REPO=$repo"
+          echo "REPO_BRANCH=$branch"
+          echo "REPO_COMMIT=$commit"
+        } >> "$GITHUB_ENV"
+        echo "release-tag=$release_tag" >> "$GITHUB_OUTPUT"
+        echo "package-tag=$package_tag" >> "$GITHUB_OUTPUT"
+
+    - name: Upload the build info artifact
+      uses: actions/upload-artifact@v7
+      with:
+        if-no-files-found: error
+        name: build-info
+        path: BUILD-INFO.json

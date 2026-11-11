@@ -17,33 +17,30 @@ Don't put product-owned things here, such as the engine's tool schemas or catalo
 - Self-contained: an action never uses files from the calling repo's checkout unless an input names them. Actions that call `gh` set `GH_REPO: ${{ github.repository }}`, so they work in jobs with no checkout.
 - Callers use `openlogix/.github/actions/<name>@v1`.
 
+- **What goes here** (the website repo's `CLAUDE.md`, Shared CI): any workflow step or job that two Open Logix repos do the same way is an action or a reusable workflow here, never copied between repos. Actions are task-sized (a whole job's shared part), so a repo's workflow keeps only what's its own.
+
 Action details:
 
-- `get-release-and-package-tags`: env var names in (`release-tag-var`, `package-tag-var`); today's UTC date as `yyyy-mm-dd` and `yyyymmdd`.
-- `ensure-no-conflicting-release`: `release-tag`, `just-check`. Deletes a same-tag pre-release and its tag unless just checking; fails on a stable one; no release is fine.
-- `cleanup-old-prereleases`: keeps the newest non-draft pre-releases (`PRERELEASE_KEEP` in `actions/release-policy.sh`, 5), deletes the others with their tags. Stable releases and drafts are untouched.
-- `write-release-about`: `output-file`, `extra-bullets` (optional, one per line). Writes the standard "About these releases" section of a release text (website repo's `CLAUDE.md`, Release text is user facing), stating the same policy. `actions/release-policy.sh` is the one place the pre-release policy is set: both actions read it.
-- `create-pre-release`: `release_tag`, `body_path`, `files`, `target-commit` (optional, default the workflow's commit, so the tag names the commit that was built). Name = tag. Fails if the tag exists; a missing file fails the run.
-- `get-repo-info`: `repo-dir`, optional `repo-var`/`branch-var`/`commit-var`. Repo is lowercase `owner/repo`; branch is `detached` for a detached HEAD; origin must be `https://github.com/owner/repo[.git]`.
+- `start-pre-release`: the first job of a `build-pre-release` workflow, after checkout. `package-name`, `description`, `extra-fields` (optional JSON object, placed after the description). Today's tags (`yyyy-mm-dd`, `yyyymmdd`), fails if a stable release has that tag, writes `BUILD-INFO.json` (the standard fields: repo, branch, commit, tags, build time, workflow run) and uploads it as the `build-info` artifact; sets `RELEASE_TAG`, `PACKAGE_TAG`, `REPO`, `REPO_BRANCH`, `REPO_COMMIT` and outputs the two tags.
+- `read-build-info`: the platform build jobs and the release job. Downloads `BUILD-INFO.json`, optionally adds `target-platform` (`platform`), sets the same five variables.
+- `publish-pre-release`: the release job's end. `title`, `links`, `engine-note` (`catalog` or `core`: the "Use it through Logix Engine" note; `release_text.py` holds the one copy of both texts), `content-file` (the repo's own Markdown), `about-bullets`, `files` (the packages). Writes `SHA256SUMS` and the release text in the standard structure (the website repo's `CLAUDE.md`, Release text is user facing), deletes a same-tag pre-release and its tag and makes it again from scratch with the tag at the built commit (fails over a stable release), uploads the files with `BUILD-INFO.json` and `SHA256SUMS`, then deletes older pre-releases by the policy.
+- `actions/release-policy.sh`: the pre-release policy, the one place it's set (`PRERELEASE_KEEP=5`: pre-releases are daily, so each is deleted after about 5 days unless made stable). `publish-pre-release` applies it and states it in every release text.
 - `check-platform`: `os` is a substring of `uname -o`, `arch` equals `uname -m`, case-insensitive.
-- `write-to-json-file`: `json-file`, `key`, string `value`, with `jq`.
-- `format-json-file`: aligned values with the `json-align` npm tool.
-- `set-env-from-json`: `mappings`, "ENV_VAR key" pairs; a missing key fails.
-- `json-to-text`: Python; aligned `key : value` lines, keys in file order.
 - `scan-files-for-viruses`: `file-patterns`; each pattern must match a file; ClamAV with `freshclam`, scans inside archives.
 - `assert-step-failed`: `outcome`, `error-message`; for testing expected failures.
+- `.github/workflows/publish-docs.yaml`: a reusable workflow (`workflow_call`) that builds a repo's MkDocs site with `--strict` and deploys it to its GitHub Pages. Callers keep the triggers, the Pages permissions and the `pages` concurrency group, and call `openlogix/.github/.github/workflows/publish-docs.yaml@v1`.
 
 ## Tests
 
-`actions-test.yaml` runs on every push and pull request, manually, and daily at 00:00 UTC. One job per action runs it and compares with expected output. Expected failures (a platform mismatch, an EICAR test file in the virus scan, creating an existing release, a stable release conflict) use `continue-on-error` plus `assert-step-failed`.
+`actions-test.yaml` runs on every push and pull request, manually, and daily at 00:00 UTC. One job per action runs it and compares with expected output. Expected failures (a platform mismatch, an EICAR test file in the virus scan, publishing over a stable release) use `continue-on-error` plus `assert-step-failed`.
 
-This repo has no releases of its own, so `test-release-actions` also tests the three actions that change releases. It works only on releases whose tags start with `test-`, runs one at a time, deletes its releases at the end, and deletes leftovers from earlier runs at the start. Add or update a test with every action change.
+This repo has no releases of its own, so `test-publish-pre-release` tests the release action on test releases: the text's structure, the files, a same-tag replacement, stable-release protection and the cleanup. It works only on releases whose tags start with `test-`, runs one at a time, deletes its releases at the end, and deletes leftovers from earlier runs at the start. Add or update a test with every action change.
 
 ## Versions
 
 - Callers pin the major tag `v1`. After a change passes `actions-test` on `main`, move the tag: `git tag -f v1 && git push -f origin v1`. Moving `v1` changes every caller's CI right away, so check with the user first.
-- A change that breaks existing callers (a removed or renamed input, changed behavior) gets `v2`. Keep `v1` working until the callers move.
+- During initial development (no backward compatibility, the website repo's `CLAUDE.md`), a change that breaks callers moves `v1` too, and every caller is updated in the same go. After the first releases, a breaking change gets `v2`, and `v1` keeps working until the callers move.
 
 ## Conventions
 
-Use the current major versions of GitHub's actions (`actions/checkout`), and an exact version of third-party actions (`softprops/action-gh-release`). Commit freely; pushes to `main` affect only this repo's tests until `v1` moves.
+Use the current major versions of GitHub's actions (`actions/checkout`), and an exact version of any third-party action. Commit freely; pushes to `main` affect only this repo's tests until `v1` moves.

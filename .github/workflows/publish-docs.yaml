@@ -1,0 +1,45 @@
+# The docs site workflow every Open Logix repo with docs calls: builds the
+# MkDocs site (mkdocs.yml, docs/, tools pinned in docs/requirements.txt;
+# --strict, so a broken link fails it) and deploys it to the caller's
+# GitHub Pages. The caller sets the triggers (push to main, daily, manual),
+# 'pages: write' and 'id-token: write', and the 'pages' concurrency group:
+#
+#   jobs:
+#     publish:
+#       uses: openlogix/.github/.github/workflows/publish-docs.yaml@v1
+
+name: publish-docs
+
+on:
+  workflow_call:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install the docs tools
+        run: pip install -r docs/requirements.txt
+
+      - name: Build the site
+        run: mkdocs build --strict
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v5

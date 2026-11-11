@@ -1,0 +1,38 @@
+name: "Read Build Info"
+description: >-
+  Gets BUILD-INFO.json from the 'build-info' artifact (start-pre-release)
+  into the working folder, optionally adds the platform being built
+  (target-platform), and sets RELEASE_TAG, PACKAGE_TAG, REPO, REPO_BRANCH
+  and REPO_COMMIT in the environment. For the platform build jobs and the
+  pre-release job of a build-pre-release workflow.
+
+inputs:
+  platform:
+    description: "Optional platform this job builds, such as darwin-arm64, added as target-platform."
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download the build info artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: build-info
+        path: _build-info
+
+    - name: Read the build info
+      shell: bash
+      env:
+        PLATFORM: ${{ inputs.platform }}
+      run: |
+        set -euo pipefail
+        mv _build-info/BUILD-INFO.json BUILD-INFO.json
+        rmdir _build-info
+        if [[ -n "$PLATFORM" ]]; then
+          jq --arg p "$PLATFORM" '. + {"target-platform": $p}' BUILD-INFO.json > _b.json
+          mv _b.json BUILD-INFO.json
+        fi
+        cat -n BUILD-INFO.json
+        jq -r '"RELEASE_TAG=\(."release-tag")", "PACKAGE_TAG=\(."package-tag")", "REPO=\(.repo)", "REPO_BRANCH=\(."repo-branch")", "REPO_COMMIT=\(."repo-commit")"' \
+          BUILD-INFO.json >> "$GITHUB_ENV"

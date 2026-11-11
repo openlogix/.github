@@ -1,0 +1,101 @@
+name: "Publish Pre-release"
+description: >-
+  The last job of an Open Logix build-pre-release workflow. Writes
+  SHA256SUMS and the release text in the standard structure (title, links,
+  the "Use it through Logix Engine" note, the repo's own content, Build
+  info, About these releases, Checksums), replaces the day's pre-release
+  from scratch (the old release and its tag are deleted; the new tag names
+  the commit that was built), uploads the files with BUILD-INFO.json and
+  SHA256SUMS, and deletes old pre-releases by the policy in
+  release-policy.sh. Fails rather than replace a stable release. Needs
+  BUILD-INFO.json in the working folder (read-build-info) and
+  'contents: write'.
+
+inputs:
+  title:
+    description: "The release text's title line, '<Name>: <tagline>.', without the bold markers."
+    required: true
+  links:
+    description: "Optional links line, such as '[Main page](...) · [Docs](...)'."
+    required: false
+    default: ""
+  engine-note:
+    description: "Optional 'Use it through Logix Engine' note: catalog or core."
+    required: false
+    default: ""
+  content-file:
+    description: "Optional Markdown file with the repo's own content (what's in the release, how to use it)."
+    required: false
+    default: ""
+  about-bullets:
+    description: "Optional repo-specific bullets for About these releases, one per line, without '- '."
+    required: false
+    default: ""
+  files:
+    description: "The release's packages, one path per line; each gets a checksum. BUILD-INFO.json and SHA256SUMS are added."
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Write the checksums and the release text
+      shell: bash
+      env:
+        TITLE: ${{ inputs.title }}
+        LINKS: ${{ inputs.links }}
+        ENGINE_NOTE: ${{ inputs.engine-note }}
+        CONTENT_FILE: ${{ inputs.content-file }}
+        ABOUT_BULLETS: ${{ inputs.about-bullets }}
+        FILES: ${{ inputs.files }}
+      run: python3 "${{ github.action_path }}/release_text.py"
+
+    - name: Replace the day's pre-release and publish
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        FILES: ${{ inputs.files }}
+      run: |
+        set -euo pipefail
+        tag="$(jq -r '."release-tag"' BUILD-INFO.json)"
+        commit="$(jq -r '."repo-commit"' BUILD-INFO.json)"
+        state="$(gh release view "$tag" --json isPrerelease --jq .isPrerelease 2>/dev/null || true)"
+        if [[ "$state" == "false" ]]; then
+          echo "::error ::A stable release has the tag $tag. Aborting to protect it."
+          exit 1
+        elif [[ "$state" == "true" ]]; then
+          echo "*** Deleting the pre-release $tag and its tag, to make it again"
+          gh release delete "$tag" --yes --cleanup-tag
+        fi
+        mapfile -t files < <(printf '%s\n' "$FILES" | sed '/^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]]*$//')
+        gh release create "$tag" "${files[@]}" BUILD-INFO.json SHA256SUMS \
+          --prerelease --title "$tag" --notes-file RELEASE-BODY.md --target "$commit"
+        url="https://github.com/${{ github.repository }}"
+        {
+          echo "### Pre-release $tag"
+          echo
+          echo "- [The release]($url/releases/tag/$tag)"
+          echo "- [The commit built]($url/commit/$commit)"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Delete old pre-releases
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        source "${{ github.action_path }}/../release-policy.sh"
+        mapfile -t tags < <(
+          gh release list --limit 1000 --json tagName,isPrerelease,isDraft,publishedAt \
+            --jq '[.[] | select(.isPrerelease == true and .isDraft == false)]
+                  | sort_by(.publishedAt) | reverse | .[].tagName'
+        )
+        for ((i = 0; i < ${#tags[@]}; i++)); do
+          if (( i < PRERELEASE_KEEP )); then
+            echo "*** Keeping pre-release ${tags[i]}"
+          else
+            echo "*** Deleting pre-release ${tags[i]}"
+            gh release delete "${tags[i]}" --cleanup-tag --yes
+          fi
+        done
