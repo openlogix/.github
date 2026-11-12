@@ -60,6 +60,11 @@ jobs:
           [ "$RELEASE_TAG" = "$today" ] && [ "$PACKAGE_TAG" = "${today//-/}" ]
           [ "$REPO" = "$GITHUB_REPOSITORY" ] && [ "$REPO_COMMIT" = "$GITHUB_SHA" ]
           [ "$OUT_RELEASE" = "$today" ] && [ "$OUT_PACKAGE" = "${today//-/}" ]
+          # The build info on the run's summary page.
+          grep -q '^## Build info$' "$GITHUB_STEP_SUMMARY"
+          grep -qF '| `package-name` | `test-package` |' "$GITHUB_STEP_SUMMARY"
+          grep -qF '| `test-version` | `1.2.3` |' "$GITHUB_STEP_SUMMARY"
+          grep -q '| `repo-commit` | \[`'"$GITHUB_SHA"'`\](' "$GITHUB_STEP_SUMMARY"
 
   # -- read-build-info: the artifact from start-pre-release, the platform,
   # -- and the environment.

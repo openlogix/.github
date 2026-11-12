@@ -36,7 +36,7 @@ Composite actions in [actions/](actions), and one reusable workflow, used from t
 
 | Action | What it does |
 | --- | --- |
-| `start-pre-release` | A release workflow's start: today's tags, the stable-release check, `BUILD-INFO.json` |
+| `start-pre-release` | A release workflow's start: today's tags, the stable-release check, `BUILD-INFO.json`, also shown on the run's summary page |
 | `read-build-info` | Gets `BUILD-INFO.json` in a later job, with the platform, into env vars |
 | `publish-pre-release` | A release workflow's end: checksums, the standard release text, the day's pre-release made again from scratch, and the cleanup |
 | `check-platform` | Fails unless the runner has the given OS and architecture |

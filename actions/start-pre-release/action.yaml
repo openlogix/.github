@@ -4,7 +4,8 @@ description: >-
   tag (yyyy-mm-dd) and package tag (yyyymmdd), a check that no stable
   release has that tag (a pre-release with it is replaced later, by
   publish-pre-release), and BUILD-INFO.json, the build's description,
-  uploaded as the 'build-info' artifact for the other jobs (read-build-info).
+  uploaded as the 'build-info' artifact for the other jobs (read-build-info)
+  and shown as a table on the run's summary page.
   Sets RELEASE_TAG, PACKAGE_TAG, REPO, REPO_BRANCH and REPO_COMMIT in the
   environment, and the two tags as outputs. Run it after checking out the
   repo.
@@ -74,6 +75,23 @@ runs:
         } >> "$GITHUB_ENV"
         echo "release-tag=$release_tag" >> "$GITHUB_OUTPUT"
         echo "package-tag=$package_tag" >> "$GITHUB_OUTPUT"
+
+    # The build info on the run's summary page too (the website repo's
+    # CLAUDE.md, Shared CI: every build workflow shows it there).
+    - name: Build info in the run's summary
+      shell: bash
+      run: |
+        set -euo pipefail
+        {
+          echo "## Build info"
+          echo
+          echo "| Field | Value |"
+          echo "| --- | --- |"
+          jq -r --arg server "${{ github.server_url }}" '
+            to_entries[] |
+            if .key == "repo-commit" then "| `\(.key)` | [`\(.value)`](\($server)/\(env.REPO)/commit/\(.value)) |"
+            else "| `\(.key)` | `\(.value | tostring | gsub("\\|"; "\\|"))` |" end' BUILD-INFO.json
+        } >> "$GITHUB_STEP_SUMMARY"
 
     - name: Upload the build info artifact
       uses: actions/upload-artifact@v7
