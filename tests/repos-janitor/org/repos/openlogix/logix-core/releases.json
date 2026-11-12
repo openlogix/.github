@@ -1,0 +1,19 @@
+[
+ {
+  "tag_name": "2026-11-03",
+  "prerelease": false,
+  "draft": false,
+  "latest": true,
+  "assets": [
+   {
+    "name": "logix-core-darwin-arm64-20261103.tgz"
+   },
+   {
+    "name": "SHA256SUMS"
+   },
+   {
+    "name": "BUILD-INFO.json"
+   }
+  ]
+ }
+]

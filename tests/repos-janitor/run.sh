@@ -21,10 +21,10 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "8 failures, 5 warnings, 13 passed." \
+  "8 failures, 6 warnings, 17 passed." \
   "## Failures (8)" \
-  "## Warnings (5)" \
-  "## Passed (13)" \
+  "## Warnings (6)" \
+  "## Passed (17)" \
   "| Named by \`openlogix/logix-ide\`'s \`remote-config/logix-ide/config-001.jsonc\`. |" \
   "### \`openlogix/logix-ide\`" \
   "[the release, to make it stable](https://github.com/openlogix/logix-engine/releases/tag/2026-11-10)" \
@@ -32,6 +32,8 @@ for text in \
   "[the run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
   "| latest release | \`2026-11-05\` is marked Latest, but the remote configs recommend \`2026-11-01\`" \
   "| latest release | no release is marked Latest yet" \
+  "| latest release | \`2026-11-01\` is marked Latest, the release recommended to people who install it" \
+  "| latest release | \`2026-11-03\` is marked Latest, but no remote config names a stable release of this dependency" \
   "| repo type | installable (topic \`openlogix-installable\`) |" \
   "| repo type | it has no type topic" \
   "| repo type | \`2026-11-01\` is a release, but the repo has none by its type" \

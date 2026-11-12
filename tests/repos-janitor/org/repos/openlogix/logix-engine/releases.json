@@ -78,5 +78,22 @@
     "name": "BUILD-INFO.json"
    }
   ]
+ },
+ {
+  "tag_name": "2026-11-01",
+  "prerelease": false,
+  "draft": false,
+  "latest": true,
+  "assets": [
+   {
+    "name": "logix-engine-darwin-arm64-20261101.tgz"
+   },
+   {
+    "name": "SHA256SUMS"
+   },
+   {
+    "name": "BUILD-INFO.json"
+   }
+  ]
  }
 ]

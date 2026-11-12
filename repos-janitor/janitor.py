@@ -390,12 +390,13 @@ def check_type(repo: Repo, report: Report) -> None:
 
 
 def check_latest(repo: Repo, report: Report, named: dict[str, list[str]]) -> None:
-    """Check 8: the release marked Latest is the one recommended, by the
-    repo's type. When the remote configs name stable releases of this repo,
-    Latest should be the newest of them. An installable repo with no Latest
+    """Check 8: the release marked Latest, by the repo's type. An
+    installable repo's Latest is for the people who install it, independent
+    of the releases other products' remote configs name (the website repo's
+    CLAUDE.md, Repo types), so it's never compared with them; having none
     (only pre-releases) passes for now: requiring stable releases is
-    deferred. A dependency needs no Latest; one that no config's stable
-    release accounts for is a warning."""
+    deferred. A dependency needs no Latest; if it has one, it should be the
+    newest stable release the remote configs name, else it's a warning."""
     if not repo.releases() or repo.type not in ("installable", "dependency"):
         return
     latest = repo.latest()
@@ -413,6 +414,11 @@ def check_latest(repo: Repo, report: Report, named: dict[str, list[str]]) -> Non
                        releases_link, why="Programs download a dependency as remote configs name it, not people.")
         return
     links = [("the release", release_page(repo.name, latest))]
+    if repo.type == "installable":
+        report.add("pass", repo.name, "latest release",
+                   f"`{latest}` is marked Latest, the release recommended to people who install it",
+                   links, why=f"{why} The repo is installable; its Latest is independent of the releases other products' configs name.")
+        return
     if repo.type == "dependency" and not stable_named:
         report.add("warn", repo.name, "latest release",
                    f"`{latest}` is marked Latest, but no remote config names a stable release of this dependency: it sends people to a release no product uses",
