@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.openlogix.org/schemas/logix-remote-config-v1.json",
+  "title": "Open Logix remote config",
+  "description": "What one Open Logix component uses: one entry per direct dependency, naming a stable GitHub release and its file. A component reads remote-config/<product>/config-NNN.jsonc from its own repo, by the config version it hard-codes (Remote updates, in the website repo's CLAUDE.md). The file is JSONC: comments say why each entry changed.",
+  "type": "object",
+  "required": ["$schema"],
+  "properties": {
+    "$schema": {
+      "const": "https://www.openlogix.org/schemas/logix-remote-config-v1.json"
+    }
+  },
+  "patternProperties": {
+    "^[a-z0-9][a-z0-9-]*$": { "$ref": "#/$defs/dependency" }
+  },
+  "additionalProperties": false,
+  "minProperties": 2,
+  "$defs": {
+    "dependency": {
+      "description": "A dependency, keyed by its package name, such as logix-catalog.",
+      "type": "object",
+      "required": ["repo", "release", "file"],
+      "properties": {
+        "repo": {
+          "description": "The GitHub repo of its releases, owner/name, such as openlogix/logix-catalog.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$"
+        },
+        "release": {
+          "description": "The release tag, yyyy-mm-dd. It must be a stable release (not a pre-release).",
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "file": {
+          "description": "The release file's name, a template: ${PLATFORM} is the platform, such as darwin-arm64, and ${YYYYMMDD} the release tag without dashes. Such as logix-core-${PLATFORM}-${YYYYMMDD}.tgz.",
+          "type": "string",
+          "pattern": "^([A-Za-z0-9_-]|\\$\\{PLATFORM\\}|\\$\\{YYYYMMDD\\})([A-Za-z0-9._-]|\\$\\{PLATFORM\\}|\\$\\{YYYYMMDD\\})*$"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

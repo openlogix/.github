@@ -1,0 +1,50 @@
+name: "Check Remote Config"
+description: >-
+  Checks a repo's remote configs, remote-config/<product>/config-NNN.jsonc
+  (Remote updates, in the website repo's CLAUDE.md): file names, JSONC, the
+  schema (schemas/logix-remote-config-v1.json in this repo), and for every
+  dependency that its release exists and is stable, that its file exists for
+  each platform and that the release's SHA256SUMS lists it. On main, and on
+  pull requests into main, repos must be in the owner. Reports every problem,
+  then fails if there were any. Needs a checkout and GH_TOKEN.
+inputs:
+  folder:
+    description: "The remote-config folder, relative to the workspace."
+    required: false
+    default: remote-config
+  platforms:
+    description: "The platforms ${PLATFORM} stands for, space-separated, such as 'darwin-arm64 linux-x86-64'."
+    required: true
+  owner:
+    description: "The only owner repos may have on main and on pull requests into main."
+    required: false
+    default: openlogix
+runs:
+  using: "composite"
+  steps:
+    # In a venv of its own: runners refuse pip installs into the system Python.
+    - name: Install jsonschema
+      shell: bash
+      run: |
+        python3 -m venv "$RUNNER_TEMP/check-remote-config-venv"
+        "$RUNNER_TEMP/check-remote-config-venv/bin/pip" install --quiet --disable-pip-version-check jsonschema==4.26.0
+
+    - name: Check the remote configs
+      shell: bash
+      env:
+        FOLDER: ${{ inputs.folder }}
+        PLATFORMS: ${{ inputs.platforms }}
+        OWNER: ${{ inputs.owner }}
+        GH_TOKEN: ${{ env.GH_TOKEN || github.token }}
+      run: |
+        set -euo pipefail
+        # Other owners (a fork, for testing) only off main.
+        owner=""
+        if [[ "${GITHUB_REF}" == "refs/heads/main" || "${GITHUB_BASE_REF:-}" == "main" ]]; then
+          owner="$OWNER"
+        fi
+        "$RUNNER_TEMP/check-remote-config-venv/bin/python" "${{ github.action_path }}/check_remote_config.py" \
+          --folder "$FOLDER" \
+          --schema "${{ github.action_path }}/../../schemas/logix-remote-config-v1.json" \
+          --platforms "$PLATFORMS" \
+          --owner "$owner"

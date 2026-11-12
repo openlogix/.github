@@ -1,0 +1,17 @@
+#!/bin/bash
+# A stand-in for the gh CLI in the check-remote-config tests: answers the two
+# calls the checker makes from the fixture releases in $FAKE_GH_RELEASES,
+# <owner>/<name>/<tag>.json and <tag>.SHA256SUMS.
+set -euo pipefail
+if [[ "$1" == "api" && "$2" =~ ^repos/([^/]+/[^/]+)/releases/tags/(.+)$ ]]; then
+  f="$FAKE_GH_RELEASES/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}.json"
+  [[ -f "$f" ]] || { echo "HTTP 404: Not Found" >&2; exit 1; }
+  cat "$f"
+elif [[ "$1 $2" == "release download" && "$4" == "-R" && "$6 $7 $8 $9" == "-p SHA256SUMS -O -" ]]; then
+  f="$FAKE_GH_RELEASES/$5/$3.SHA256SUMS"
+  [[ -f "$f" ]] || { echo "no SHA256SUMS" >&2; exit 1; }
+  cat "$f"
+else
+  echo "fake gh: unexpected call: $*" >&2
+  exit 2
+fi

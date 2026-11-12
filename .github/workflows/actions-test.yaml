@@ -115,6 +115,47 @@ jobs:
           error-message: "The previous step did not fail as expected"
 
 
+  # -- check-remote-config: the checker on every case (with a fake gh that
+  # -- answers from fixture releases), then the action itself, passing on a
+  # -- good config and failing on a pre-release.
+  test-check-remote-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Run the checker's tests
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet jsonschema==4.26.0
+          PATH="$RUNNER_TEMP/venv/bin:$PATH" tests/check-remote-config/run.sh
+
+      - name: Use the fake gh in the next steps
+        run: |
+          echo "$GITHUB_WORKSPACE/tests/check-remote-config/fake-gh" >> "$GITHUB_PATH"
+          echo "FAKE_GH_RELEASES=$GITHUB_WORKSPACE/tests/check-remote-config/releases" >> "$GITHUB_ENV"
+
+      - name: Check a good config
+        uses: ./actions/check-remote-config
+        with:
+          folder: tests/check-remote-config/cases/good/remote-config
+          platforms: darwin-arm64 linux-x86-64
+
+      - name: Check a config naming a pre-release
+        id: prerelease
+        continue-on-error: true
+        uses: ./actions/check-remote-config
+        with:
+          folder: tests/check-remote-config/cases/prerelease/remote-config
+          platforms: darwin-arm64
+
+      - name: Assert that the pre-release was refused
+        uses: ./actions/assert-step-failed
+        with:
+          outcome: ${{ steps.prerelease.outcome }}
+          error-message: "A config naming a pre-release passed the check"
+
+
   # -- Test action scan-files-for-viruses
   test-scan-files-for-viruses:
     runs-on: ubuntu-latest
