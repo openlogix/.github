@@ -7,6 +7,7 @@ Guidance for Claude working in this repo, `openlogix/.github`. It is GitHub's sp
 - `actions/<name>/action.yaml`: composite GitHub Actions shared by the Open Logix repos' CI and release workflows. [README.md](README.md) lists them.
 - `.github/workflows/actions-test.yaml`: tests the actions.
 - `profile/README.md`: the org page at github.com/openlogix. A table of all Open Logix repos for developers: repo, what it is, status. The repo list, descriptions and statuses follow the website repo's `CLAUDE.md` (Repos, Availability); when those change, update this table too.
+- Later, for remote updates (the website repo's `CLAUDE.md`, Remote updates; designed 2026-11-12, not made yet): `schemas/logix-remote-config-v1.json`, the schema every remote config names in `$schema` (copied to the website's `docs/schemas/`), and the shared CI check of remote config files (schema, named releases and files exist and are stable, repos inside `openlogix`). Planned, not decided: a janitor, a daily workflow that checks across repos (remote configs, built-in pins, stable releases, schema copies) and reports problems.
 - Later, possibly: default community files (`CONTRIBUTING.md`, `SECURITY.md`, issue templates) and `workflow-templates/`. Add them only when asked.
 
 Don't put product-owned things here, such as the engine's tool schemas or catalog. They stay in their product repo.
