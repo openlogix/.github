@@ -230,10 +230,12 @@ class Repo:
         self._channels = None
 
     def latest(self) -> str | None:
-        """The tag GitHub marks Latest; None without a stable release."""
+        """The tag GitHub marks Latest; None without a stable release, or
+        when it isn't date-tagged (such as a test release actions-test makes
+        in .github and deletes: not an Open Logix release)."""
         if self._latest == "unread":
             r = api(f"repos/{self.name}/releases/latest")
-            self._latest = r["tag_name"] if r else None
+            self._latest = r["tag_name"] if r and DATE_TAG.match(r["tag_name"]) else None
         return self._latest
 
     def releases(self) -> list[dict]:

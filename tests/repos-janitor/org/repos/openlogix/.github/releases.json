@@ -1,5 +1,12 @@
 [
  {
+  "tag_name": "test-1-stable",
+  "prerelease": false,
+  "draft": false,
+  "latest": true,
+  "assets": []
+ },
+ {
   "tag_name": "test-1-p1",
   "prerelease": true,
   "draft": false,
