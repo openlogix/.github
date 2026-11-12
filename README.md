@@ -7,8 +7,8 @@
 
 [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](#license)
 
-[![actions-test](https://img.shields.io/github/actions/workflow/status/openlogix/.github/actions-test.yaml?label=actions-test)](https://github.com/openlogix/.github/actions/workflows/actions-test.yaml)
-[![repos-janitor](https://img.shields.io/github/actions/workflow/status/openlogix/.github/repos-janitor.yaml?label=repos-janitor)](https://github.com/openlogix/.github/actions/workflows/repos-janitor.yaml)
+[![actions-test](https://img.shields.io/github/actions/workflow/status/openlogix/.github/actions-test.yaml?branch=main&label=actions-test)](https://github.com/openlogix/.github/actions/workflows/actions-test.yaml)
+[![repos-janitor](https://img.shields.io/github/actions/workflow/status/openlogix/.github/repos-janitor.yaml?branch=main&label=repos-janitor)](https://github.com/openlogix/.github/actions/workflows/repos-janitor.yaml)
 
 Shared GitHub Actions and org-wide files for the [Open Logix](https://www.openlogix.org) repos.
 
