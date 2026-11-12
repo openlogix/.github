@@ -117,7 +117,7 @@ jobs:
 
   # -- check-remote-config: the checker on every case (with a fake gh that
   # -- answers from fixture releases), then the action itself, passing on a
-  # -- good config and failing on a pre-release.
+  # -- good config and on a pre-release, failing on one with require-stable.
   test-check-remote-config:
     runs-on: ubuntu-latest
     steps:
@@ -141,13 +141,20 @@ jobs:
           folder: tests/check-remote-config/cases/good/remote-config
           platforms: darwin-arm64 linux-x86-64
 
-      - name: Check a config naming a pre-release
+      - name: Check a config naming a pre-release, allowed by default
+        uses: ./actions/check-remote-config
+        with:
+          folder: tests/check-remote-config/cases/prerelease/remote-config
+          platforms: darwin-arm64
+
+      - name: Check it again, requiring stable releases
         id: prerelease
         continue-on-error: true
         uses: ./actions/check-remote-config
         with:
           folder: tests/check-remote-config/cases/prerelease/remote-config
           platforms: darwin-arm64
+          require-stable: "true"
 
       - name: Assert that the pre-release was refused
         uses: ./actions/assert-step-failed

@@ -3,7 +3,8 @@ description: >-
   Checks a repo's remote configs, remote-config/<product>/config-NNN.jsonc
   (Remote updates, in the website repo's CLAUDE.md): file names, JSONC, the
   schema (schemas/logix-remote-config-v1.json in this repo), and for every
-  dependency that its release exists and is stable, that its file exists for
+  dependency that its release exists (and is stable, with require-stable),
+  that its file exists for
   each platform and that the release's SHA256SUMS lists it. On main, and on
   pull requests into main, repos must be in the owner. Reports every problem,
   then fails if there were any. Needs a checkout and GH_TOKEN.
@@ -19,6 +20,10 @@ inputs:
     description: "The only owner repos may have on main and on pull requests into main."
     required: false
     default: openlogix
+  require-stable:
+    description: "'true' to refuse pre-releases. Off while Open Logix is in development (Remote updates, in the website repo's CLAUDE.md)."
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
@@ -35,6 +40,7 @@ runs:
         FOLDER: ${{ inputs.folder }}
         PLATFORMS: ${{ inputs.platforms }}
         OWNER: ${{ inputs.owner }}
+        REQUIRE_STABLE: ${{ inputs.require-stable }}
         GH_TOKEN: ${{ env.GH_TOKEN || github.token }}
       run: |
         set -euo pipefail
@@ -47,4 +53,5 @@ runs:
           --folder "$FOLDER" \
           --schema "${{ github.action_path }}/../../schemas/logix-remote-config-v1.json" \
           --platforms "$PLATFORMS" \
-          --owner "$owner"
+          --owner "$owner" \
+          $([[ "$REQUIRE_STABLE" == "true" ]] && echo --require-stable)

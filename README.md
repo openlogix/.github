@@ -40,7 +40,7 @@ Composite actions in [actions/](actions), and one reusable workflow, used from t
 | `publish-pre-release` | A release workflow's end: checksums, the standard release text, the day's pre-release made again from scratch, and the cleanup |
 | `check-platform` | Fails unless the runner has the given OS and architecture |
 | `scan-files-for-viruses` | Scans files, including inside archives, with ClamAV |
-| `check-remote-config` | Checks a repo's remote configs (`remote-config/<product>/config-NNN.jsonc`): the schema, and that every named release is stable and has its files |
+| `check-remote-config` | Checks a repo's remote configs (`remote-config/<product>/config-NNN.jsonc`): the schema, and that every named release exists and has its files |
 | `assert-step-failed` | Fails unless an earlier step failed, for testing expected failures |
 | [`publish-docs.yaml`](.github/workflows/publish-docs.yaml) (reusable workflow) | Builds a repo's MkDocs site and deploys it to its GitHub Pages |
 

@@ -2,8 +2,8 @@
 
 For each file: its name, its JSONC syntax, the schema (logix-remote-config-v1,
 in this repo's schemas/), and for each dependency: its repo's owner (when
---owner is given), that its release exists and is stable (not a pre-release
-or a draft), that its file exists for every platform, and that the release's
+--owner is given), that its release exists (and, with --require-stable, is
+stable: not a pre-release; never a draft), that its file exists for every platform, and that the release's
 SHA256SUMS lists it. Every problem is reported, as a GitHub annotation, and
 the exit status is 1 if there were any.
 
@@ -65,7 +65,9 @@ def gh(*args: str) -> tuple[int, str]:
     return r.returncode, r.stdout if r.returncode == 0 else r.stderr
 
 
-def check_dependency(name: str, dep: dict, platforms: list[str], owner: str) -> list[str]:
+def check_dependency(
+    name: str, dep: dict, platforms: list[str], owner: str, require_stable: bool
+) -> list[str]:
     repo, tag, template = dep["repo"], dep["release"], dep["file"]
     errors = []
     if owner and repo.split("/")[0] != owner:
@@ -74,7 +76,9 @@ def check_dependency(name: str, dep: dict, platforms: list[str], owner: str) -> 
     if status != 0:
         return errors + [f"{name}: no release {tag} in {repo} ({out.strip()})"]
     release = json.loads(out)
-    if release.get("prerelease") or release.get("draft"):
+    if release.get("draft"):
+        errors.append(f"{name}: {repo} {tag} is a draft")
+    if require_stable and release.get("prerelease"):
         errors.append(f"{name}: {repo} {tag} is a pre-release; name only stable releases")
     assets = {a["name"] for a in release.get("assets", [])}
     files = sorted(
@@ -98,7 +102,9 @@ def check_dependency(name: str, dep: dict, platforms: list[str], owner: str) -> 
     return errors
 
 
-def check_file(path: Path, schema: dict, platforms: list[str], owner: str) -> list[str]:
+def check_file(
+    path: Path, schema: dict, platforms: list[str], owner: str, require_stable: bool
+) -> list[str]:
     try:
         config = json.loads(strip_comments(path.read_text(encoding="utf-8")))
     except (ValueError, UnicodeDecodeError) as e:
@@ -113,7 +119,7 @@ def check_file(path: Path, schema: dict, platforms: list[str], owner: str) -> li
     errors = []
     for name, dep in config.items():
         if name != "$schema":
-            errors += check_dependency(name, dep, platforms, owner)
+            errors += check_dependency(name, dep, platforms, owner, require_stable)
     return errors
 
 
@@ -123,6 +129,7 @@ def main() -> int:
     ap.add_argument("--schema", required=True, help="logix-remote-config-v1.json")
     ap.add_argument("--platforms", required=True, help="space-separated, such as darwin-arm64")
     ap.add_argument("--owner", default="", help="the only owner repos may have; empty for any")
+    ap.add_argument("--require-stable", action="store_true", help="refuse pre-releases")
     args = ap.parse_args()
     folder = Path(args.folder)
     schema = json.loads(Path(args.schema).read_text(encoding="utf-8"))
@@ -154,7 +161,7 @@ def main() -> int:
     if not files:
         report(folder, "no remote config files")
     for f in files:
-        errors = check_file(f, schema, platforms, args.owner)
+        errors = check_file(f, schema, platforms, args.owner, args.require_stable)
         for e in errors:
             report(f, e)
         if not errors:

@@ -8,13 +8,15 @@ repo="$here/../.."
 export PATH="$here/fake-gh:$PATH" FAKE_GH_RELEASES="$here/releases"
 failures=0
 
-# expect <case> <owner> <0 or 1> [<text the output must contain>]
+# expect <case> <owner> <0 or 1> [<text the output must contain>]; with
+# STABLE=1 set, pre-releases are refused.
 expect() {
   local out status
   out="$(python3 "$repo/actions/check-remote-config/check_remote_config.py" \
     --folder "$here/cases/$1/remote-config" \
     --schema "$repo/schemas/logix-remote-config-v1.json" \
-    --platforms "darwin-arm64 linux-x86-64" --owner "$2" 2>&1)"
+    --platforms "darwin-arm64 linux-x86-64" --owner "$2" \
+    ${STABLE:+--require-stable} 2>&1)"
   status=$?
   if [[ $status -ne $3 || ( -n "${4:-}" && "$out" != *"$4"* ) ]]; then
     echo "FAIL: $1 (owner '$2'): expected exit $3${4:+ and \"$4\"}, got $status:"
@@ -26,7 +28,8 @@ expect() {
 }
 
 expect good openlogix 0 "config-001.jsonc: ok"
-expect prerelease openlogix 1 "is a pre-release"
+expect prerelease openlogix 0 "config-001.jsonc: ok"
+STABLE=1 expect prerelease openlogix 1 "is a pre-release"
 expect no-release openlogix 1 "no release 2026-11-30 in openlogix/logix-catalog"
 expect no-file openlogix 1 "has no file logix-catalog-linux-x86-64-20261124.tgz"
 expect not-in-sums openlogix 1 "SHA256SUMS doesn't list logix-catalog-20261126.tgz"
