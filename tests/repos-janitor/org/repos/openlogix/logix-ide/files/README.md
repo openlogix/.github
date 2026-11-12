@@ -10,6 +10,6 @@
 
 <img src="https://www.openlogix.org/brand/readme/macos.svg" height="40" alt="macOS (Apple Silicon)" title="macOS (Apple Silicon)">
 
-[![manual](https://img.shields.io/github/actions/workflow/status/openlogix/logix-ide/manual.yaml?branch=main&event=schedule&label=manual)](https://github.com/openlogix/logix-ide/actions/workflows/manual.yaml)
+[![test](https://img.shields.io/github/actions/workflow/status/openlogix/logix-ide/manual.yaml?branch=main&event=schedule&label=test)](https://github.com/openlogix/logix-ide/actions/workflows/manual.yaml)
 
 **[Main page](https://www.openlogix.org/ide/)** · GitHub (here)

@@ -20,7 +20,7 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "❌&nbsp;&nbsp; **26 failed, 79 passed** · 8 repos · 2026-11-14 03:00 UTC" \
+  "❌&nbsp;&nbsp; **28 failed, 77 passed** · 8 repos · 2026-11-14 03:00 UTC" \
   "### Failed" \
   "### Passed" \
   "### Verification results" \
@@ -75,7 +75,8 @@ for text in \
   "- README badges should match the workflows" \
   "    - [Result] No workflows." \
   "- Org lists should include the repo" \
-  "    - [Result] Mismatch: not in the org page's table."; do
+  "    - [Result] Mismatch: not in the org page's repos table." \
+  "    - [Result] Mismatch: \`test.yaml\` is labeled \`engine-test\` in the website Status, \`test\` in its README."; do
   grep -qF -- "$text" "$tmp/summary.md" || fail "the summary has no \"$text\""
 done
 # No warnings: every failure is an error.

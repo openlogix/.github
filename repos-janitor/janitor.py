@@ -728,6 +728,13 @@ def check_settings(repo: Repo, repos: dict[str, Repo], report: Report) -> None:
     inst.verdict(not wrong, "Matches." if not wrong else "Mismatch: " + "; ".join(wrong) + ".")
 
 
+def badge_labels(text: str, repo: str) -> dict[str, str]:
+    """The status badges for `repo`'s workflow files in a Markdown text:
+    workflow file -> label (GitHub's own workflows, pages/..., skipped)."""
+    return {m.group(4): m.group(1) for m in STATUS_BADGE.finditer(text)
+            if m.group(3) == repo and "%2F" not in m.group(4)}
+
+
 def product_page(repo: Repo, site: Repo | None) -> str | None:
     """The product page of a logix-<short> repo (www.openlogix.org/<short>/),
     when the website has one."""
@@ -841,11 +848,12 @@ def check_readme_header(repo: Repo, site: Repo | None, report: Report) -> None:
     inst.verdict(not wrong, "Standard." if not wrong else "Mismatch: " + "; ".join(wrong) + ".")
 
 
-def check_badges(repo: Repo, report: Report) -> None:
+def check_badges(repo: Repo, repos: dict[str, Repo], report: Report) -> None:
     """readme-badges-should-match-workflows: one status badge per workflow
     that runs on its own, showing its last run on main (`branch=main` its only
-    filter), labeled as its alt text, and none for a workflow that isn't
-    there. GitHub's own workflows (pages/...) aren't files and are skipped."""
+    filter), labeled as its alt text with a label no other repo's README uses
+    (such as `ide-test`), and none for a workflow that isn't there. GitHub's
+    own workflows (pages/...) aren't files and are skipped."""
     text = repo.readme()
     if text is None:
         return
@@ -870,33 +878,47 @@ def check_badges(repo: Repo, report: Report) -> None:
         if target != f"https://github.com/{repo.name}/actions/workflows/{wf}":
             wrong.append(f"`{wf}`'s badge should link its runs")
     wrong += [f"no badge for `{wf}`" for wf in workflows if wf not in seen]
+    for label in sorted(set(badge_labels(text, repo.name).values())):
+        others = [o.short for o in sorted(repos.values(), key=lambda r: r.name) if o is not repo
+                  and label in badge_labels(o.readme() or "", o.name).values()]
+        if others:
+            wrong.append(f"label `{label}` is also used by {', '.join(others)}")
     inst.verdict(not wrong, (f"One per workflow ({len(workflows)})." if workflows else "No workflows.")
                  if not wrong else "Mismatch: " + "; ".join(wrong) + ".")
 
 
 def check_org_lists(repo: Repo, repos: dict[str, Repo], report: Report) -> None:
-    """org-lists-should-include-repo: the org page's table of repos (in
-    .github's profile/README.md) has its row, and the website README's Status
-    section has a badge for each of its workflows (and none for others)."""
+    """org-lists-should-include-repo: the org page (.github's
+    profile/README.md, shown on github.com/openlogix) has its row in the repos
+    table, and the org page and the website README's Status section each have
+    a badge for each of its workflows, labeled as in its own README, and none
+    for others."""
     page = f"https://github.com/{repo.name}"
     inst = report.require(repo.name, "org-lists-should-include-repo", repo.name, f"[{repo.name}]({page})", repo.name)
     inst.because("A repo of the openlogix org.")
     wrong = []
+    workflows = repo.workflows()
+    own = badge_labels(repo.readme() or "", repo.name)
+    lists = []
     shared, site = repos.get(f"{ORG}/.github"), repos.get(f"{ORG}/{WEBSITE}")
     if shared is not None:
-        url = blob(shared.name, shared.branch, "profile/README.md")
-        inst.link("org page table", url)
-        table = raw(shared.name, "profile/README.md", shared.branch) if "profile/README.md" in shared.files else ""
-        if f"[{repo.short}]({page})" not in table:
-            wrong.append("not in the org page's table")
+        inst.link("org page", blob(shared.name, shared.branch, "profile/README.md"))
+        text = raw(shared.name, "profile/README.md", shared.branch) if "profile/README.md" in shared.files else ""
+        if f"| [{repo.short}]({page}) |" not in text:
+            wrong.append("not in the org page's repos table")
+        lists.append(("the org page", text))
     if site is not None:
         inst.link("website Status", blob(site.name, site.branch, "README.md") + "#status")
-        status = (site.readme() or "").split("\n## Status", 1)[-1].split("\n## ", 1)[0]
-        listed = {m.group(4) for m in STATUS_BADGE.finditer(status) if m.group(3) == repo.name}
-        workflows = repo.workflows()
-        wrong += [f"no website Status badge for `{wf}`" for wf in workflows if wf not in listed]
-        wrong += [f"a website Status badge for `{wf}`, which isn't one of its workflows"
-                  for wf in sorted(listed) if wf not in workflows and "%2F" not in wf]
+        lists.append(("the website Status", (site.readme() or "").split("\n## Status", 1)[-1].split("\n## ", 1)[0]))
+    for where, text in lists:
+        listed = badge_labels(text, repo.name)
+        for wf in workflows:
+            if wf not in listed:
+                wrong.append(f"no badge for `{wf}` in {where}")
+            elif wf in own and listed[wf] != own[wf]:
+                wrong.append(f"`{wf}` is labeled `{listed[wf]}` in {where}, `{own[wf]}` in its README")
+        wrong += [f"a badge for `{wf}` in {where}, which isn't one of its workflows"
+                  for wf in sorted(listed) if wf not in workflows]
     inst.verdict(not wrong, "Listed." if not wrong else "Mismatch: " + "; ".join(wrong) + ".")
 
 
@@ -988,7 +1010,7 @@ def main() -> int:
         check_about(repo, site, report)
         check_files(repo, report)
         check_readme_header(repo, site, report)
-        check_badges(repo, report)
+        check_badges(repo, repos, report)
         check_org_lists(repo, repos, report)
     reach = reachable_releases(repos)
     for repo in sorted(repos.values(), key=lambda r: r.name):
