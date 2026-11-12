@@ -26,6 +26,7 @@ for text in \
   "## Failures (6)" \
   "## Warnings (4)" \
   "## Passed (10)" \
+  "| Named by \`openlogix/logix-ide\`'s \`remote-config/logix-ide/config-001.jsonc\`. |" \
   "### \`openlogix/logix-ide\`" \
   "[the release, to make it stable](https://github.com/openlogix/logix-engine/releases/tag/2026-11-10)" \
   "[the config, to repin](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/config-001.jsonc)" \
