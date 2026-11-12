@@ -248,8 +248,10 @@ def check_runs(repo: Repo, report: Report) -> None:
 
 def check_releases(repo: Repo, report: Report) -> None:
     """Check 7: every release has SHA256SUMS and BUILD-INFO.json, and has
-    every file its SHA256SUMS lists."""
-    for r in repo.releases():
+    every file its SHA256SUMS lists. Only date-tagged releases: others,
+    such as the test releases actions-test makes here and deletes, aren't
+    Open Logix releases."""
+    for r in (r for r in repo.releases() if DATE_TAG.match(r["tag_name"])):
         assets = {a["name"] for a in r["assets"]}
         missing = [f for f in ("SHA256SUMS", "BUILD-INFO.json") if f not in assets]
         if missing:
