@@ -98,15 +98,33 @@ def sums(repo: str, tag: str) -> dict[str, str] | None:
     return result
 
 
-class Report:
-    def __init__(self) -> None:
-        self.rows: list[tuple[str, str, str, str]] = []
+def blob(repo: str, branch: str, path: str) -> str:
+    return f"https://github.com/{repo}/blob/{branch}/{path}"
 
-    def add(self, level: str, repo: str, check: str, message: str) -> None:
-        self.rows.append((level, repo, check, message))
+
+def release_page(repo: str, tag: str) -> str:
+    return f"https://github.com/{repo}/releases/tag/{tag}"
+
+
+class Report:
+    """Every item checked: "pass", "warn" (breaks soon, or needs a person)
+    or "fail" (broken now), with links to where to look or fix it."""
+
+    def __init__(self) -> None:
+        self.rows: list[tuple[str, str, str, str, list[tuple[str, str]]]] = []
+
+    def add(self, level: str, repo: str, check: str, message: str, links=()) -> None:
+        self.rows.append((level, repo, check, message, list(links)))
+
+    def problems(self):
+        order = {"fail": 0, "warn": 1}
+        return sorted((r for r in self.rows if r[0] != "pass"), key=lambda r: (order[r[0]], r[1], r[2], r[3]))
+
+    def count(self, level: str) -> int:
+        return sum(1 for r in self.rows if r[0] == level)
 
     def failed(self) -> bool:
-        return any(r[0] == "fail" for r in self.rows)
+        return self.count("fail") > 0
 
 
 class Repo:
@@ -158,13 +176,21 @@ def check_configs(repo: Repo, report: Report, platforms: list[str]) -> list[dict
             capture_output=True,
             text=True,
         )
-    if r.returncode != 0:
-        for line in (r.stdout + r.stderr).splitlines():
-            m = re.match(r"^::error(?: file=([^:]*))?::(.*)$", line)
-            if m:
-                where = m.group(1) or ""
-                where = where.split(tmp + "/", 1)[-1]
-                report.add("fail", repo.name, "remote configs", f"{where}: {m.group(2)}" if where else m.group(2))
+    bad = set()
+    for line in (r.stdout + r.stderr).splitlines():
+        m = re.match(r"^::error(?: file=([^:]*))?::(.*)$", line)
+        if m:
+            where = (m.group(1) or "").split(tmp + "/", 1)[-1]
+            bad.add(where)
+            links = [("the config", blob(repo.name, repo.branch, where))] if where in paths else []
+            report.add("fail", repo.name, "remote configs", f"{where}: {m.group(2)}" if where else m.group(2), links)
+    if r.returncode != 0 and not bad:
+        report.add("fail", repo.name, "remote configs", f"check-remote-config failed: {(r.stdout + r.stderr).strip()[-300:]}")
+        return entries
+    for p in paths:
+        if p not in bad and "" not in bad:
+            report.add("pass", repo.name, "remote configs", f"{p} is valid and every release and file it names exists",
+                       [("the config", blob(repo.name, repo.branch, p))])
     return entries
 
 
@@ -181,6 +207,7 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
         dep = repos.get(e.get("repo", ""))
         tag = e.get("release", "")
         where = f"{e['config']}: {e['name']} {tag}"
+        config_link = ("the config, to repin", blob(repo.name, repo.branch, e["config"]))
         if dep is None:
             continue  # Check 1 reports a repo outside the org.
         named = next((r for r in dep.releases() if r["tag_name"] == tag), None)
@@ -189,14 +216,27 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
         if named["prerelease"]:
             pre = sorted((r["tag_name"] for r in dep.releases() if r["prerelease"]), reverse=True)
             left = keep - pre.index(tag)
+            links = [config_link, ("the release, to make it stable", release_page(dep.name, tag))]
             if left <= EXPIRY_WARN_DAYS:
                 report.add("warn", repo.name, "expiring pre-releases",
-                           f"{where} is a pre-release deleted in about {left} day(s): repin it")
+                           f"{where} is a pre-release deleted in about {left} day(s): repin it, or make the release stable", links)
+            else:
+                report.add("pass", repo.name, "expiring pre-releases", f"{where} is a pre-release kept about {left} more days", links)
+        else:
+            report.add("pass", repo.name, "expiring pre-releases", f"{where} is a stable release",
+                       [("the release", release_page(dep.name, tag))])
         dates = [d for d in (tag_date(r["tag_name"]) for r in dep.releases()) if d]
         named_date = tag_date(tag)
-        if dates and named_date and (max(dates) - named_date).days > STALE_DAYS:
-            report.add("warn", repo.name, "stale pins",
-                       f"{where} is {(max(dates) - named_date).days} days older than {dep.name}'s newest release, {max(dates)}")
+        if dates and named_date:
+            behind = (max(dates) - named_date).days
+            newest = ("the newest release", release_page(dep.name, max(dates).isoformat()))
+            if behind > STALE_DAYS:
+                report.add("warn", repo.name, "stale pins",
+                           f"{where} is {behind} days older than {dep.name}'s newest release, {max(dates)}", [config_link, newest])
+            else:
+                report.add("pass", repo.name, "stale pins",
+                           f"{where} is {'the newest release' if behind == 0 else f'{behind} day(s) behind the newest, {max(dates)}'}",
+                           [newest])
         file_sums = sums(dep.name, tag) or {}
         for platform in platforms:
             file = e.get("file", "").replace("${PLATFORM}", platform).replace("${YYYYMMDD}", tag.replace("-", ""))
@@ -205,9 +245,13 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
                 continue  # Check 1 reports it.
             key = f"{dep.name}/{tag}/{file}"
             new_state[key] = sha
+            links = [("the release", release_page(dep.name, tag))]
             if key in state and state[key] != sha:
                 report.add("warn", repo.name, "rebuilt releases",
-                           f"{where}: {file} was rebuilt under the same tag (its SHA-256 changed), so installed products download it again")
+                           f"{where}: {file} was rebuilt under the same tag (its SHA-256 changed), so installed products download it again", links)
+            else:
+                report.add("pass", repo.name, "rebuilt releases",
+                           f"{where}: {file} {'unchanged since the last run' if key in state else 'seen for the first time'}", links)
 
 
 def check_schemas(repos: dict[str, Repo], report: Report) -> None:
@@ -219,10 +263,15 @@ def check_schemas(repos: dict[str, Repo], report: Report) -> None:
         name = path.rsplit("/", 1)[1]
         owner = next((repos[f"{ORG}/{o}"] for o in SCHEMA_OWNERS
                       if f"{ORG}/{o}" in repos and f"schemas/{name}" in repos[f"{ORG}/{o}"].files), None)
+        copy = ("the copy", blob(site.name, site.branch, path))
         if owner is None:
-            report.add("fail", site.name, "schema copies", f"{path} has no owner (schemas/{name} in {', '.join(SCHEMA_OWNERS)})")
-        elif raw(site.name, path, site.branch) != raw(owner.name, f"schemas/{name}", owner.branch):
-            report.add("fail", site.name, "schema copies", f"{path} differs from {owner.name}'s schemas/{name}: copy it again")
+            report.add("fail", site.name, "schema copies", f"{path} has no owner (schemas/{name} in {', '.join(SCHEMA_OWNERS)})", [copy])
+            continue
+        original = ("the owner's file", blob(owner.name, owner.branch, f"schemas/{name}"))
+        if raw(site.name, path, site.branch) != raw(owner.name, f"schemas/{name}", owner.branch):
+            report.add("fail", site.name, "schema copies", f"{path} differs from {owner.name}'s schemas/{name}: copy it again", [original, copy])
+        else:
+            report.add("pass", site.name, "schema copies", f"{path} equals {owner.name}'s schemas/{name}", [original, copy])
 
 
 def check_runs(repo: Repo, report: Report) -> None:
@@ -236,14 +285,19 @@ def check_runs(repo: Repo, report: Report) -> None:
             continue
         runs = api(f"repos/{repo.name}/actions/workflows/{file}/runs?branch={repo.branch}&event=schedule&status=completed&per_page=1")
         run = (runs or {}).get("workflow_runs", [None])[0] if runs and runs.get("workflow_runs") else None
+        workflow = ("the workflow", f"https://github.com/{repo.name}/actions/workflows/{file}")
         if run is None:
-            report.add("warn", repo.name, "daily runs", f"{file} has no completed scheduled run yet")
+            report.add("warn", repo.name, "daily runs", f"{file} has no completed scheduled run yet", [workflow])
             continue
-        if run["conclusion"] != "success":
-            report.add("fail", repo.name, "daily runs", f"{file}'s last scheduled run {run['conclusion']}: {run['html_url']}")
+        links = [("the run", run["html_url"]), workflow]
+        ok = run["conclusion"] == "success"
+        if not ok:
+            report.add("fail", repo.name, "daily runs", f"{file}'s last scheduled run: {run['conclusion']}", links)
         started = dt.datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
         if now() - started > RUN_MAX_AGE:
-            report.add("warn", repo.name, "daily runs", f"{file} hasn't run since {run['created_at']}")
+            report.add("warn", repo.name, "daily runs", f"{file} hasn't run since {run['created_at']}", links)
+        elif ok:
+            report.add("pass", repo.name, "daily runs", f"{file}'s last scheduled run passed ({run['created_at']})", links)
 
 
 def check_releases(repo: Repo, report: Report) -> None:
@@ -252,23 +306,49 @@ def check_releases(repo: Repo, report: Report) -> None:
     such as the test releases actions-test makes here and deletes, aren't
     Open Logix releases."""
     for r in (r for r in repo.releases() if DATE_TAG.match(r["tag_name"])):
+        tag = r["tag_name"]
+        links = [("the release", release_page(repo.name, tag))]
         assets = {a["name"] for a in r["assets"]}
+        problems = 0
         missing = [f for f in ("SHA256SUMS", "BUILD-INFO.json") if f not in assets]
         if missing:
-            report.add("fail", repo.name, "releases", f"{r['tag_name']} has no {' or '.join(missing)}")
-        listed = sums(repo.name, r["tag_name"]) or {}
+            report.add("fail", repo.name, "releases", f"{tag} has no {' or '.join(missing)}", links)
+            problems += 1
+        listed = sums(repo.name, tag) or {}
         for f in sorted(set(listed) - assets):
-            report.add("fail", repo.name, "releases", f"{r['tag_name']}'s SHA256SUMS lists {f}, which the release doesn't have")
+            report.add("fail", repo.name, "releases", f"{tag}'s SHA256SUMS lists {f}, which the release doesn't have", links)
+            problems += 1
+        if not problems:
+            kind = "pre-release" if r["prerelease"] else "stable release"
+            report.add("pass", repo.name, "releases", f"{tag} ({kind}) has SHA256SUMS, BUILD-INFO.json and every file it lists", links)
+
+
+def md_links(links) -> str:
+    return ", ".join(f"[{label}]({url})" for label, url in links)
 
 
 def write_summary(report: Report, checked: int) -> None:
-    lines = [f"## repos-janitor: {checked} repos"]
-    if not report.rows:
-        lines.append("\nEverything passed.")
+    """The run's summary page: the problems first, with links to fix them,
+    then everything that was checked, by repo."""
+    icon = {"pass": "✅ pass", "warn": "⚠️ warn", "fail": "❌ fail"}
+    lines = [
+        f"## repos-janitor: {checked} repos",
+        "",
+        f"{report.count('pass')} passed, {report.count('warn')} warnings, {report.count('fail')} failures.",
+        "",
+        "### Problems",
+        "",
+    ]
+    problems = report.problems()
+    if problems:
+        lines += ["| Result | Repo | Check | Problem | Fix it |", "| --- | --- | --- | --- | --- |"]
+        for level, repo, check, message, links in problems:
+            lines.append(f"| {icon[level]} | {repo} | {check} | {message.replace('|', chr(92) + '|')} | {md_links(links)} |")
     else:
-        lines += ["", "| Result | Repo | Check | Problem |", "| --- | --- | --- | --- |"]
-        for level, repo, check, message in sorted(report.rows):
-            lines.append(f"| {level} | [{repo}](https://github.com/{repo}) | {check} | {message.replace('|', '\\|')} |")
+        lines.append("None: everything passed.")
+    lines += ["", "### Everything checked", "", "| Repo | Check | Result | Item | Links |", "| --- | --- | --- | --- | --- |"]
+    for level, repo, check, message, links in sorted(report.rows, key=lambda r: (r[1], r[2], r[3])):
+        lines.append(f"| {repo} | {check} | {icon[level]} | {message.replace('|', chr(92) + '|')} | {md_links(links)} |")
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a") as f:
@@ -294,11 +374,11 @@ def main() -> int:
     check_schemas(repos, report)
 
     state_file.write_text(json.dumps(new_state, indent=2, sort_keys=True) + "\n")
-    for level, repo, check, message in sorted(report.rows):
+    for level, repo, check, message, links in report.problems():
         kind = "error" if level == "fail" else "warning"
-        print(f"::{kind} title={check} ({repo})::{message}")
-    if not report.rows:
-        print(f"repos-janitor: {len(repos)} repos, everything passed.")
+        print(f"::{kind} title={check} ({repo})::{message} ({links[0][1] if links else 'no link'})")
+    print(f"repos-janitor: {len(repos)} repos, {report.count('pass')} passed, "
+          f"{report.count('warn')} warnings, {report.count('fail')} failures.")
     write_summary(report, len(repos))
     return 1 if report.failed() else 0
 
