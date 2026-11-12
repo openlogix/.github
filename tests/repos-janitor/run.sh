@@ -11,7 +11,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 cp "$here/state.json" "$tmp/state.json"
 export PATH="$here/fake-gh:$PATH" FAKE_GH_ORG="$here/org" JANITOR_NOW="2026-11-14T03:00:00Z"
-out="$(python3 "$repo/repos-janitor/janitor.py" --state "$tmp/state.json" --summary "$tmp/summary.md" 2>&1)"
+out="$(python3 "$repo/repos-janitor/janitor.py" --state "$tmp/state.json" --summary "$tmp/summary.md" --results "$tmp/results.json" 2>&1)"
 status=$?
 failures=0
 fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
@@ -21,32 +21,43 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "# ❌ repos-janitor" \
-  "**9 failures · 4 warnings · 29 passed**, in 8 repos (2026-11-14 03:00 UTC)." \
-  "## ❌ Failures" \
-  "## ⚠️ Warnings" \
-  "## ✅ Passed" \
-  "### logix-ide" \
-  "<details><summary><b>logix-core</b>:" \
-  "[the file](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc)" \
-  "[the config, to repin](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc)" \
-  "[the run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
-  "<br><sub>Why: Named by \`logix-ide\`'s \`001/dev.jsonc\`; installed products download it.</sub>" \
-  "- **remote configs**: \`001/dev.jsonc\` is valid, and every release and file it names exists" \
-  "- **remote configs**: \`001/channels.jsonc\` is valid" \
-  "- **remote configs**: \`001/dev.jsonc\`: logix-catalog: no release 2026-11-30" \
-  "- **schema copies**: \`docs/schemas/logix-board-v1.json\` equals \`logix-catalog\`'s \`schemas/logix-board-v1.json\`" \
-  "- **latest release**: no release is marked Latest yet: no release is prod" \
-  "- **latest release**: \`2026-11-01\` is marked Latest, a prod release" \
-  "- **latest release**: \`2026-11-02\` is marked Latest, but it's on dev: Latest must be a prod release" \
-  "- **latest release**: \`2026-11-05\` is marked Latest, but no recommended install uses a release of it" \
-  "- **latest release**: \`2026-11-03\` is marked Latest, the newest release the recommended installs use" \
-  "Used: \`2026-11-03\` by \`logix-engine\` \`2026-11-01\` (Latest) → \`logix-core\` \`2026-11-03\`." \
-  "- **repo type**: installable (topic \`openlogix-installable\`)" \
-  "- **repo type**: it has no type topic" \
-  "- **repo type**: \`2026-11-01\` is a release, but the repo has none by its type"; do
+  "❌&nbsp;&nbsp; **10 errors, 4 warnings, 33 passed** · 8 repos · 2026-11-14 03:00 UTC" \
+  "### Errors" \
+  "### Warnings" \
+  "### Passed" \
+  "### Verification results" \
+  "**openlogix/logix-ide**" \
+  "<details><summary><b>openlogix/logix-core</b> · " \
+  "- Release should be valid" \
+  "    - [Why] Named by logix-ide [\`001/dev.jsonc\`](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc)." \
+  "    - [Result] It has no \`BUILD-INFO.json\`." \
+  "    - [Fix] [the release](https://github.com/openlogix/logix-catalog/releases/tag/2026-11-01)" \
+  "    - [Fix] [the config, to repin](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc) · [the newest release](https://github.com/openlogix/logix-catalog/releases/tag/2026-11-12)" \
+  "    - [Fix] [the workflow](https://github.com/openlogix/logix-engine/actions/workflows/test.yaml) · [the run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
+  "- Latest should be a prod release" \
+  "    - [Result] It's on dev: promote it, or mark a prod release Latest." \
+  "    - [Result] It's on the prod list of its version's \`channels.jsonc\`." \
+  "    - [Result] No release is prod yet, so none can be Latest." \
+  "- Release should be Latest" \
+  "    - [Why] Used by a recommended install: logix-engine [\`2026-11-01\`](https://github.com/openlogix/logix-engine/releases/tag/2026-11-01) (Latest) → [\`001/prod.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/prod.jsonc) → logix-core \`2026-11-03\`." \
+  "    - [Why] On the prod list of [\`001/channels.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/channels.jsonc): a prod release must be stable." \
+  "- Latest should be used by a recommended install" \
+  "- Dev pin should be recent" \
+  "- Repo should have one type" \
+  "- Repo should have no releases"; do
   grep -qF -- "$text" "$tmp/summary.md" || fail "the summary has no \"$text\""
 done
+# The JSON results, as Apio's: by repo, then requirement type.
+python3 - "$tmp/results.json" <<'PYEOF' || fail "the JSON results are wrong"
+import json, sys
+r = json.load(open(sys.argv[1]))
+assert r["passed"] is False
+e = r["errors"]["openlogix/logix-catalog"]["release-should-be-valid"][0]
+assert e["release_tag"] == "2026-11-01" and e["notes"] == [
+    "[Why] Named by logix-ide 001/dev.jsonc.", "[Result] It has no BUILD-INFO.json."], e
+assert "pin-should-be-recent" in r["warnings"]["openlogix/logix-ide"]
+assert "latest-should-be-prod" in r["successes"]["openlogix/logix-engine"]
+PYEOF
 # The state now holds this run's SHA-256s.
 if ! grep -q '"openlogix/logix-engine/2026-11-10/logix-engine-darwin-arm64-20261110.tgz": "[0-9a-f]\{64\}"' "$tmp/state.json" \
    || grep -q '"0000000000' "$tmp/state.json"; then

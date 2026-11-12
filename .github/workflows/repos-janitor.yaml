@@ -53,7 +53,7 @@ jobs:
       - name: Check the repos
         env:
           GH_TOKEN: ${{ github.token }}
-        run: '"$RUNNER_TEMP/venv/bin/python" repos-janitor/janitor.py --state janitor-state.json --summary janitor-summary.md'
+        run: '"$RUNNER_TEMP/venv/bin/python" repos-janitor/janitor.py --state janitor-state.json --summary janitor-summary.md --results janitor-results.json'
 
       # The report on the run's summary page, and as an artifact, also when
       # a check failed.
@@ -69,7 +69,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: repos-janitor-report
-          path: janitor-summary.md
+          path: |
+            janitor-summary.md
+            janitor-results.json
 
       # Saved even when a check failed, so the next run compares with it.
       - name: Save the state
