@@ -13,12 +13,12 @@ Guidance for Claude working in this repo, `openlogix/.github`. It is GitHub's sp
 
 Don't put product-owned things here, such as the engine's tool schemas or catalog. They stay in their product repo.
 
-## repos-janitor (designed 2026-11-12, not built yet)
+## repos-janitor (built 2026-11-12)
 
 A workflow here that checks what no single repo's CI can see and reports problems in one place, modeled on Apio's janitor. The user's decisions (from the proposal doc, now obsolete):
 
-- **Name:** `repos-janitor`, also on its badge ("check" undersold it: it will also fix later). Files: `.github/workflows/repos-janitor.yaml` and `repos-janitor/janitor.py`.
-- **When:** every 6 hours, at 03:00, 09:00, 15:00 and 21:00 UTC (as Apio's; the 03:00 run is three hours after the 00:00 UTC builds and tests start), right after each repo's daily build (its last step sends a `repository_dispatch` event here, which needs a token that can write to this repo: a GitHub App or a fine-grained token, as a secret in each repo), and manually.
+- **Name:** `repos-janitor`, also on its badge ("check" undersold it: it will also fix later). Files: `.github/workflows/repos-janitor.yaml` and `repos-janitor/janitor.py` (Python, the gh CLI with the run's own token; `PLATFORMS`, the platforms configs must serve, gets Windows and Linux with Milestones 3 and 4; the thresholds are constants at its top; the pre-release count comes from `actions/release-policy.sh`). It skips its own workflow in check 6. The state for check 4 is `janitor-state.json`, restored from and saved to the Actions cache (a new key per run, saved even when the run fails). A full run takes about a minute.
+- **When:** every 6 hours, at 03:00, 09:00, 15:00 and 21:00 UTC (as Apio's; the 03:00 run is three hours after the 00:00 UTC builds and tests start), and manually. It must stay quick (a few minutes): API reads only, no checkouts of other repos beyond the files it reads. Not after each repo's build (deferred indefinitely, the user's decision 2026-11-12): a `repository_dispatch` from the product repos would need a token that can write to this repo stored in each of them, giving every product repo's developers write access to the org repo. **Access rule** (the user's, 2026-11-12): this repo may get access to the product repos (such as a token or GitHub App for fixes later), never the other way around.
 - **Which repos:** every public repo in the `openlogix` org, found through the API; each check applies to the repos that have what it checks (a `remote-config/` folder, scheduled workflows, releases), so a new repo needs no list edit. Read-only, with the workflow's own token (the repos are public).
 - **Checks** (start with these seven; keep, drop or add later; a candidate to add: the org page's table and the website README's Status section list every repo and workflow). A failure is something broken now; a warning, something that breaks soon or needs a person:
   1. Remote configs on `main`: each repo's config files pass `check-remote-config` (runs that action's script, so there's one definition of a valid config). Fails: any doesn't.
@@ -29,7 +29,7 @@ A workflow here that checks what no single repo's CI can see and reports problem
   6. Daily runs: fails when a workflow's latest scheduled run on `main` failed; warns when it didn't run in the last 26 hours.
   7. Releases: fails when a day's pre-release lacks `SHA256SUMS` or `BUILD-INFO.json`, or lists a file it doesn't have.
 - **Report:** a table in the run's summary page (repo, check, pass, warn or fail, the reason, a link); the run fails on any failure, so its badge turns red; the badge goes in the website README's Status section as `repos-janitor`. That's all for now: a GitHub issue here that it opens, updates and closes (GitHub emails the watchers), and email to developers (needs an SMTP account and a mail action) come after the public release. GitHub already emails a scheduled run's failure to whoever last changed its schedule.
-- **Tests:** as `check-remote-config`'s: a fake `gh` with fixture releases and files, a case per check, run by `actions-test.yaml`.
+- **Tests:** `tests/repos-janitor/run.sh`: a fake `gh` (`fake-gh/gh`, Python) answering from a fixture org (`org/repos/openlogix/<repo>/`: `files/`, `releases.json`, `sums/<tag>`, `runs/<workflow>.json`) where each check fires once, and a state file with a changed SHA-256; the output must be exactly the expected findings (sorted by result, repo, check). Run by `actions-test.yaml` (`test-repos-janitor`).
 - **Not now: fixes**, including auto-repin (when check 2 warns, a pull request moving the config to the newest pre-release, tested by that repo's CI and merged only after review; needs a write token, a GitHub App). Fixing comes after the reports have proved right for a while.
 
 ## Action rules

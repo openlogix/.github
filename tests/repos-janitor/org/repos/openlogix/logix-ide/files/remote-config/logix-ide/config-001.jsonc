@@ -1,0 +1,14 @@
+// A comment, as JSONC allows.
+{
+  "$schema": "https://www.openlogix.org/schemas/logix-remote-config-v1.json",
+  "logix-engine": {
+    "repo": "openlogix/logix-engine",
+    "release": "2026-11-10",
+    "file": "logix-engine-${PLATFORM}-${YYYYMMDD}.tgz"
+  },
+  "logix-catalog": {
+    "repo": "openlogix/logix-catalog",
+    "release": "2026-11-01",
+    "file": "logix-catalog-${YYYYMMDD}.tgz"
+  }
+}

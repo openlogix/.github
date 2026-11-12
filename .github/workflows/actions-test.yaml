@@ -118,6 +118,19 @@ jobs:
   # -- check-remote-config: the checker on every case (with a fake gh that
   # -- answers from fixture releases), then the action itself, passing on a
   # -- good config and on a pre-release, failing on one with require-stable.
+  # -- repos-janitor: every check against a fixture org, with a fake gh.
+  test-repos-janitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Run the janitor's tests
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet jsonschema==4.26.0
+          PATH="$RUNNER_TEMP/venv/bin:$PATH" tests/repos-janitor/run.sh
+
   test-check-remote-config:
     runs-on: ubuntu-latest
     steps:

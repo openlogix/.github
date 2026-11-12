@@ -1,0 +1,82 @@
+[
+ {
+  "tag_name": "2026-11-14",
+  "prerelease": true,
+  "draft": false,
+  "assets": [
+   {
+    "name": "logix-engine-darwin-arm64-20261114.tgz"
+   },
+   {
+    "name": "SHA256SUMS"
+   },
+   {
+    "name": "BUILD-INFO.json"
+   }
+  ]
+ },
+ {
+  "tag_name": "2026-11-13",
+  "prerelease": true,
+  "draft": false,
+  "assets": [
+   {
+    "name": "logix-engine-darwin-arm64-20261113.tgz"
+   },
+   {
+    "name": "SHA256SUMS"
+   },
+   {
+    "name": "BUILD-INFO.json"
+   }
+  ]
+ },
+ {
+  "tag_name": "2026-11-12",
+  "prerelease": true,
+  "draft": false,
+  "assets": [
+   {
+    "name": "logix-engine-darwin-arm64-20261112.tgz"
+   },
+   {
+    "name": "SHA256SUMS"
+   },
+   {
+    "name": "BUILD-INFO.json"
+   }
+  ]
+ },
+ {
+  "tag_name": "2026-11-11",
+  "prerelease": true,
+  "draft": false,
+  "assets": [
+   {
+    "name": "logix-engine-darwin-arm64-20261111.tgz"
+   },
+   {
+    "name": "SHA256SUMS"
+   },
+   {
+    "name": "BUILD-INFO.json"
+   }
+  ]
+ },
+ {
+  "tag_name": "2026-11-10",
+  "prerelease": true,
+  "draft": false,
+  "assets": [
+   {
+    "name": "logix-engine-darwin-arm64-20261110.tgz"
+   },
+   {
+    "name": "SHA256SUMS"
+   },
+   {
+    "name": "BUILD-INFO.json"
+   }
+  ]
+ }
+]

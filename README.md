@@ -8,6 +8,7 @@
 [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](#license)
 
 [![test](https://img.shields.io/github/actions/workflow/status/openlogix/.github/actions-test.yaml?branch=main&event=schedule&label=test)](https://github.com/openlogix/.github/actions/workflows/actions-test.yaml)
+[![repos-janitor](https://img.shields.io/github/actions/workflow/status/openlogix/.github/repos-janitor.yaml?branch=main&event=schedule&label=repos-janitor)](https://github.com/openlogix/.github/actions/workflows/repos-janitor.yaml)
 
 Shared GitHub Actions and org-wide files for the [Open Logix](https://www.openlogix.org) repos.
 
@@ -47,6 +48,10 @@ Composite actions in [actions/](actions), and one reusable workflow, used from t
 The pre-release policy (pre-releases are kept about 5 days unless made stable) is set in one place, [`actions/release-policy.sh`](actions/release-policy.sh).
 
 [actions-test.yaml](.github/workflows/actions-test.yaml) tests every action on each change and daily.
+
+## repos-janitor
+
+[repos-janitor.yaml](.github/workflows/repos-janitor.yaml) checks across the Open Logix repos every 6 hours what no single repo's CI can see: remote configs on `main`, pre-releases they name that are about to expire, stale pins, releases rebuilt under the same tag, the website's schema copies, every repo's daily runs, and that releases have their `SHA256SUMS` and `BUILD-INFO.json`. Its run summary lists what it found; the run, and its badge above, go red on any failure. It only reads, and only reports for now.
 
 ## Versions
 

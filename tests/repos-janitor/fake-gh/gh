@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""A stand-in for the gh CLI in the repos-janitor tests: answers the calls
+janitor.py and check_remote_config.py make from the fixture org in
+$FAKE_GH_ORG: repos/<owner>/<name>/ with files/ (the default branch's
+files), releases.json, sums/<tag> (SHA256SUMS) and runs/<workflow>.json."""
+import json, os, sys
+from pathlib import Path
+
+org = Path(os.environ["FAKE_GH_ORG"])
+args = sys.argv[1:]
+
+
+def out(value):
+    print(value if isinstance(value, str) else json.dumps(value), end="")
+    sys.exit(0)
+
+
+def not_found():
+    print("HTTP 404: Not Found", file=sys.stderr)
+    sys.exit(1)
+
+
+def repo_dir(full):
+    d = org / "repos" / full
+    return d if d.is_dir() else not_found()
+
+
+def releases(full):
+    f = repo_dir(full) / "releases.json"
+    return json.loads(f.read_text()) if f.is_file() else []
+
+
+if args[:1] == ["release"] and args[1] == "download":
+    tag, full = args[2], args[4]
+    f = repo_dir(full) / "sums" / tag
+    if not f.is_file():
+        print("no SHA256SUMS", file=sys.stderr)
+        sys.exit(1)
+    out(f.read_text())
+
+if args[:1] == ["api"]:
+    raw = "-H" in args
+    path = args[-1]
+    path, _, query = path.partition("?")
+    parts = path.split("/")
+    if path == "orgs/openlogix/repos":
+        out([{"full_name": f"openlogix/{d.name}", "name": d.name, "default_branch": "main", "archived": False}
+             for d in sorted((org / "repos" / "openlogix").iterdir())])
+    full = "/".join(parts[1:3])
+    rest = parts[3:]
+    d = repo_dir(full)
+    if rest[:2] == ["git", "trees"]:
+        files = d / "files"
+        out({"tree": [{"path": p.relative_to(files).as_posix(), "type": "blob"}
+                      for p in sorted(files.rglob("*")) if p.is_file()]})
+    if rest[:1] == ["contents"] and raw:
+        f = d / "files" / "/".join(rest[1:])
+        out(f.read_text()) if f.is_file() else not_found()
+    if rest == ["releases"]:
+        out(releases(full))
+    if rest[:2] == ["releases", "tags"]:
+        r = next((r for r in releases(full) if r["tag_name"] == rest[2]), None)
+        out(r) if r else not_found()
+    if rest[:2] == ["actions", "workflows"] and rest[3:] == ["runs"]:
+        f = d / "runs" / f"{rest[2]}.json"
+        out(json.loads(f.read_text()) if f.is_file() else {"workflow_runs": []})
+
+print(f"fake gh: unexpected call: {' '.join(sys.argv[1:])}", file=sys.stderr)
+sys.exit(2)

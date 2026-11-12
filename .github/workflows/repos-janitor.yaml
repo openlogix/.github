@@ -1,0 +1,64 @@
+# repos-janitor: checks across the Open Logix repos what no single repo's CI
+# can see (remote configs, expiring pre-releases, stale pins, rebuilt
+# releases, schema copies, daily runs, releases) and reports it in this
+# run's summary; the run fails on any failure, so its badge turns red. The
+# design is in this repo's CLAUDE.md (repos-janitor). Read-only, with this
+# run's own token: the repos are public.
+#
+# Every 6 hours, as Apio's janitor; the 03:00 run comes three hours after
+# the 00:00 UTC daily builds and tests start. Not triggered by the product
+# repos' builds: that would need a token in each of them that can write
+# here.
+
+name: repos-janitor
+
+on:
+  schedule:
+    - cron: "0 3,9,15,21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: repos-janitor
+  cancel-in-progress: false
+
+jobs:
+  janitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      # In a venv of its own: runners refuse pip installs into the system
+      # Python. jsonschema is for check-remote-config's script, which check 1
+      # runs.
+      - name: Install jsonschema
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --disable-pip-version-check jsonschema==4.26.0
+
+      # The SHA-256s the last run saw (check 4: rebuilt releases). A new
+      # cache entry every run; restoring takes the newest.
+      - name: Restore the last run's state
+        uses: actions/cache/restore@v6
+        with:
+          path: janitor-state.json
+          key: repos-janitor-state-${{ github.run_id }}
+          restore-keys: repos-janitor-state-
+
+      - name: Check the repos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: '"$RUNNER_TEMP/venv/bin/python" repos-janitor/janitor.py --state janitor-state.json'
+
+      # Saved even when a check failed, so the next run compares with it.
+      - name: Save the state
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: janitor-state.json
+          key: repos-janitor-state-${{ github.run_id }}

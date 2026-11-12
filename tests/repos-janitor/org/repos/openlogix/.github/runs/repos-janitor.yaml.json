@@ -1,0 +1,9 @@
+{
+ "workflow_runs": [
+  {
+   "conclusion": "failure",
+   "created_at": "2026-11-14T03:00:00Z",
+   "html_url": "x"
+  }
+ ]
+}

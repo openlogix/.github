@@ -1,0 +1,31 @@
+[
+ {
+  "tag_name": "2026-11-12",
+  "prerelease": true,
+  "draft": false,
+  "assets": [
+   {
+    "name": "logix-catalog-20261112.tgz"
+   },
+   {
+    "name": "SHA256SUMS"
+   },
+   {
+    "name": "BUILD-INFO.json"
+   }
+  ]
+ },
+ {
+  "tag_name": "2026-11-01",
+  "prerelease": false,
+  "draft": false,
+  "assets": [
+   {
+    "name": "logix-catalog-20261101.tgz"
+   },
+   {
+    "name": "SHA256SUMS"
+   }
+  ]
+ }
+]
