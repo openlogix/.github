@@ -2,12 +2,13 @@
 can see, and reports problems in one place (modeled on Apio's janitor). The
 design and the checks are in this repo's CLAUDE.md (repos-janitor).
 
-    python3 repos-janitor/janitor.py --state <file>
+    python3 repos-janitor/janitor.py --state <file> --summary <file>
 
 Reads every public, unarchived repo in the org with the gh CLI (`gh api`,
 `gh release download`), read-only. Each finding is "fail" (broken now) or
-"warn" (breaks soon, or needs a person); they're printed, written as GitHub
-annotations and, in a workflow, as a table in the run's summary. The exit
+"warn" (breaks soon, or needs a person); the problems are printed as GitHub
+annotations, and --summary gets the whole report in Markdown, which the
+workflow adds to the run's summary page. The exit
 status is 1 if anything failed. --state is a JSON file of the SHA-256s seen
 in the last run (check 4), read if it exists and written at the end.
 
@@ -428,7 +429,7 @@ def check_latest(repo: Repo, report: Report, named: dict[str, list[str]]) -> Non
                    + (", the newest stable release the remote configs name" if stable_named else ""), links, why=why)
 
 
-def write_summary(report: Report, checked: int) -> None:
+def write_summary(report: Report, checked: int, path: str) -> None:
     """The run's summary page: the counts, then the failures, the warnings
     (with links to fix them) and what passed, each as a table per repo."""
     lines = [
@@ -448,15 +449,13 @@ def write_summary(report: Report, checked: int) -> None:
             lines += ["", f"### `{repo}`", "", f"| Check | {item} | Why | {link} |", "| --- | --- | --- | --- |"]
             for _, _, check, message, links, why in (r for r in rows if r[1] == repo):
                 lines.append(f"| {check} | {message.replace('|', chr(92) + '|')} | {why} | {md_links(links)} |")
-    summary = os.environ.get("GITHUB_STEP_SUMMARY")
-    if summary:
-        with open(summary, "a") as f:
-            f.write("\n".join(lines) + "\n")
+    Path(path).write_text("\n".join(lines) + "\n")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--state", required=True, help="the last run's SHA-256s (JSON), read and written")
+    ap.add_argument("--summary", required=True, help="the Markdown report to write (the workflow adds it to the run's summary)")
     args = ap.parse_args()
     state_file = Path(args.state)
     state = json.loads(state_file.read_text()) if state_file.is_file() else {}
@@ -486,7 +485,7 @@ def main() -> int:
         print(f"::{kind} title={check} ({repo})::{message.replace('`', '')} ({links[0][1] if links else 'no link'})")
     print(f"repos-janitor: {len(repos)} repos, {report.count('pass')} passed, "
           f"{report.count('warn')} warnings, {report.count('fail')} failures.")
-    write_summary(report, len(repos))
+    write_summary(report, len(repos), args.summary)
     return 1 if report.failed() else 0
 
 

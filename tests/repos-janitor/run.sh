@@ -11,8 +11,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 cp "$here/state.json" "$tmp/state.json"
 export PATH="$here/fake-gh:$PATH" FAKE_GH_ORG="$here/org" JANITOR_NOW="2026-11-14T03:00:00Z"
-export GITHUB_STEP_SUMMARY="$tmp/summary.md"
-out="$(python3 "$repo/repos-janitor/janitor.py" --state "$tmp/state.json" 2>&1)"
+out="$(python3 "$repo/repos-janitor/janitor.py" --state "$tmp/state.json" --summary "$tmp/summary.md" 2>&1)"
 status=$?
 failures=0
 fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
