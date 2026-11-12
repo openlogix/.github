@@ -7,11 +7,30 @@ Guidance for Claude working in this repo, `openlogix/.github`. It is GitHub's sp
 - `actions/<name>/action.yaml`: composite GitHub Actions shared by the Open Logix repos' CI and release workflows. [README.md](README.md) lists them.
 - `.github/workflows/actions-test.yaml`: tests the actions.
 - `profile/README.md`: the org page at github.com/openlogix. A table of all Open Logix repos for developers: repo, what it is, status. The repo list, descriptions and statuses follow the website repo's `CLAUDE.md` (Repos, Availability); when those change, update this table too.
-- `schemas/logix-remote-config-v1.json`: the schema every remote config names in `$schema` (Remote updates, the website repo's `CLAUDE.md`), owned here; the website serves a copy at `www.openlogix.org/schemas/`, so copy it there whenever it changes. Until the first release it changes without a new version. Planned, not decided: a janitor, a daily workflow that checks across repos (remote configs, built-in pins, stable releases, schema copies) and reports problems.
+- `schemas/logix-remote-config-v1.json`: the schema every remote config names in `$schema` (Remote updates, the website repo's `CLAUDE.md`), owned here; the website serves a copy at `www.openlogix.org/schemas/`, so copy it there whenever it changes. Until the first release it changes without a new version.
 - `tests/<action>/`: fixtures for an action's tests, such as `tests/check-remote-config/` (cases, fixture releases, a fake `gh` and `run.sh`).
 - Later, possibly: default community files (`CONTRIBUTING.md`, `SECURITY.md`, issue templates) and `workflow-templates/`. Add them only when asked.
 
 Don't put product-owned things here, such as the engine's tool schemas or catalog. They stay in their product repo.
+
+## repos-janitor (designed 2026-11-12, not built yet)
+
+A workflow here that checks what no single repo's CI can see and reports problems in one place, modeled on Apio's janitor. The user's decisions (from the proposal doc, now obsolete):
+
+- **Name:** `repos-janitor`, also on its badge ("check" undersold it: it will also fix later). Files: `.github/workflows/repos-janitor.yaml` and `repos-janitor/janitor.py`.
+- **When:** every 6 hours, at 03:00, 09:00, 15:00 and 21:00 UTC (as Apio's; the 03:00 run is three hours after the 00:00 UTC builds and tests start), right after each repo's daily build (its last step sends a `repository_dispatch` event here, which needs a token that can write to this repo: a GitHub App or a fine-grained token, as a secret in each repo), and manually.
+- **Which repos:** every public repo in the `openlogix` org, found through the API; each check applies to the repos that have what it checks (a `remote-config/` folder, scheduled workflows, releases), so a new repo needs no list edit. Read-only, with the workflow's own token (the repos are public).
+- **Checks** (start with these seven; keep, drop or add later; a candidate to add: the org page's table and the website README's Status section list every repo and workflow). A failure is something broken now; a warning, something that breaks soon or needs a person:
+  1. Remote configs on `main`: each repo's config files pass `check-remote-config` (runs that action's script, so there's one definition of a valid config). Fails: any doesn't.
+  2. Expiring pre-releases: a config pinned to a pre-release the policy is about to delete. Fails: it's gone. Warns: 2 days before it expires (among the 2 oldest kept). Keeping more than 5 daily pre-releases (`actions/release-policy.sh`) would give more time to repin.
+  3. Stale pins: warns when a named release is more than 7 days older than the dependency's newest.
+  4. Rebuilt releases: warns when a named file's SHA-256 differs from the last run's (installed products download it again); the last run's hashes are kept as a workflow artifact or cache.
+  5. Schema copies: fails when a file in the website's `docs/schemas/` differs from its owner's (`logix-catalog`'s `schemas/`, this repo's `schemas/`).
+  6. Daily runs: fails when a workflow's latest scheduled run on `main` failed; warns when it didn't run in the last 26 hours.
+  7. Releases: fails when a day's pre-release lacks `SHA256SUMS` or `BUILD-INFO.json`, or lists a file it doesn't have.
+- **Report:** a table in the run's summary page (repo, check, pass, warn or fail, the reason, a link); the run fails on any failure, so its badge turns red; the badge goes in the website README's Status section as `repos-janitor`. That's all for now: a GitHub issue here that it opens, updates and closes (GitHub emails the watchers), and email to developers (needs an SMTP account and a mail action) come after the public release. GitHub already emails a scheduled run's failure to whoever last changed its schedule.
+- **Tests:** as `check-remote-config`'s: a fake `gh` with fixture releases and files, a case per check, run by `actions-test.yaml`.
+- **Not now: fixes**, including auto-repin (when check 2 warns, a pull request moving the config to the newest pre-release, tested by that repo's CI and merged only after review; needs a write token, a GitHub App). Fixing comes after the reports have proved right for a while.
 
 ## Action rules
 
