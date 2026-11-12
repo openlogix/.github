@@ -21,24 +21,27 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "8 failures, 6 warnings, 17 passed." \
-  "## Failures (8)" \
-  "## Warnings (6)" \
-  "## Passed (17)" \
-  "| Named by \`openlogix/logix-ide\`'s \`remote-config/logix-ide/config-001.jsonc\`. |" \
-  "### \`openlogix/logix-ide\`" \
+  "# ❌ repos-janitor" \
+  "**8 failures · 5 warnings · 21 passed**, in 7 repos (2026-11-14 03:00 UTC)." \
+  "## ❌ Failures" \
+  "## ⚠️ Warnings" \
+  "## ✅ Passed" \
+  "### logix-ide" \
+  "<details><summary><b>logix-core</b>:" \
   "[the release, to make it stable](https://github.com/openlogix/logix-engine/releases/tag/2026-11-10)" \
   "[the config, to repin](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/config-001.jsonc)" \
   "[the run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
-  "| latest release | \`2026-11-05\` is marked Latest, but the remote configs recommend \`2026-11-01\`" \
-  "| latest release | no release is marked Latest yet" \
-  "| latest release | \`2026-11-01\` is marked Latest, the release recommended to people who install it" \
-  "| latest release | \`2026-11-03\` is marked Latest, but no remote config names a stable release of this dependency" \
-  "| repo type | installable (topic \`openlogix-installable\`) |" \
-  "| repo type | it has no type topic" \
-  "| repo type | \`2026-11-01\` is a release, but the repo has none by its type" \
-  "| remote configs | \`remote-config/logix-ide/config-001.jsonc\` is valid" \
-  "| schema copies | \`docs/schemas/logix-board-v1.json\` equals \`openlogix/logix-catalog\`'s \`schemas/logix-board-v1.json\`"; do
+  "<br><sub>Why: Named by \`logix-ide\`'s \`config-001.jsonc\`; installed products download it.</sub>" \
+  "- **remote configs**: \`remote-config/logix-ide/config-001.jsonc\` is valid" \
+  "- **schema copies**: \`docs/schemas/logix-board-v1.json\` equals \`logix-catalog\`'s \`schemas/logix-board-v1.json\`" \
+  "- **latest release**: no release is marked Latest yet" \
+  "- **latest release**: \`2026-11-01\` is marked Latest, the release recommended to people who install it" \
+  "- **latest release**: \`2026-11-05\` is marked Latest, but no recommended install uses a release of it" \
+  "- **latest release**: \`2026-11-03\` is marked Latest, the newest release the recommended installs use" \
+  "Used: \`2026-11-03\` by \`logix-engine\` \`2026-11-01\` (Latest) → \`logix-core\` \`2026-11-03\`." \
+  "- **repo type**: installable (topic \`openlogix-installable\`)" \
+  "- **repo type**: it has no type topic" \
+  "- **repo type**: \`2026-11-01\` is a release, but the repo has none by its type"; do
   grep -qF -- "$text" "$tmp/summary.md" || fail "the summary has no \"$text\""
 done
 # The state now holds this run's SHA-256s.

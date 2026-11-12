@@ -2,7 +2,8 @@
 """A stand-in for the gh CLI in the repos-janitor tests: answers the calls
 janitor.py and check_remote_config.py make from the fixture org in
 $FAKE_GH_ORG: repos/<owner>/<name>/ with topics (its topics), files/ (the default branch's
-files), releases.json, sums/<tag> (SHA256SUMS) and runs/<workflow>.json."""
+files), releases.json, sums/<tag> (SHA256SUMS), files-of/<tag>/<name> (other
+release files, such as BUILD-INFO.json) and runs/<workflow>.json."""
 import json, os, sys
 from pathlib import Path
 
@@ -31,10 +32,11 @@ def releases(full):
 
 
 if args[:1] == ["release"] and args[1] == "download":
-    tag, full = args[2], args[4]
-    f = repo_dir(full) / "sums" / tag
+    tag, full, name = args[2], args[4], args[6]
+    # SHA256SUMS from sums/<tag>; other files from files-of/<tag>/<name>.
+    f = repo_dir(full) / ("sums" if name == "SHA256SUMS" else f"files-of/{tag}") / (tag if name == "SHA256SUMS" else name)
     if not f.is_file():
-        print("no SHA256SUMS", file=sys.stderr)
+        print(f"no {name}", file=sys.stderr)
         sys.exit(1)
     out(f.read_text())
 

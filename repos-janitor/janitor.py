@@ -107,6 +107,17 @@ def sums(repo: str, tag: str) -> dict[str, str] | None:
     return result
 
 
+def short(repo: str) -> str:
+    """A repo's name without the org, for the report."""
+    return repo.split("/", 1)[-1]
+
+
+def release_file(repo: str, tag: str, name: str) -> str | None:
+    """A release file's text; None without one."""
+    status, out = gh("release", "download", tag, "-R", repo, "-p", name, "-O", "-")
+    return out if status == 0 else None
+
+
 def blob(repo: str, branch: str, path: str) -> str:
     return f"https://github.com/{repo}/blob/{branch}/{path}"
 
@@ -233,9 +244,9 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
     for e in entries:
         dep = repos.get(e.get("repo", ""))
         tag = e.get("release", "")
-        where = f"`{e['config']}`: `{e['name']}` `{tag}`"
+        where = f"`{e['config'].rsplit('/', 1)[-1]}` names `{e['name']}` `{tag}`, which"
         config_link = ("the config, to repin", blob(repo.name, repo.branch, e["config"]))
-        named_by = f"`{repo.name}`'s `{e['config']}` names it, so installed products download it."
+        named_by = "Installed products download what their remote config names."
         if dep is None:
             continue  # Check 1 reports a repo outside the org.
         named = next((r for r in dep.releases() if r["tag_name"] == tag), None)
@@ -260,7 +271,7 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
             newest = ("the newest release", release_page(dep.name, max(dates).isoformat()))
             if behind > STALE_DAYS:
                 report.add("warn", repo.name, "stale pins",
-                           f"{where} is {behind} days older than `{dep.name}`'s newest release, `{max(dates)}`", [config_link, newest], why=named_by)
+                           f"{where} is {behind} days older than the newest release, `{max(dates)}`", [config_link, newest], why=named_by)
             else:
                 report.add("pass", repo.name, "stale pins",
                            f"{where} is {'the newest release' if behind == 0 else f'{behind} day(s) behind the newest, `{max(dates)}`'}",
@@ -276,10 +287,10 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
             links = [("the release", release_page(dep.name, tag))]
             if key in state and state[key] != sha:
                 report.add("warn", repo.name, "rebuilt releases",
-                           f"{where}: `{file}` was rebuilt under the same tag (its SHA-256 changed), so installed products download it again", links, why=named_by)
+                           f"{where} was rebuilt under the same tag: `{file}`'s SHA-256 changed, so installed products download it again", links, why=named_by)
             else:
                 report.add("pass", repo.name, "rebuilt releases",
-                           f"{where}: `{file}` {'unchanged since the last run' if key in state else 'seen for the first time'}", links, why=named_by)
+                           f"{where} has `{file}` {'unchanged since the last run' if key in state else 'seen for the first time'}", links, why=named_by)
 
 
 def check_schemas(repos: dict[str, Repo], report: Report) -> None:
@@ -297,9 +308,9 @@ def check_schemas(repos: dict[str, Repo], report: Report) -> None:
             continue
         original = ("the owner's file", blob(owner.name, owner.branch, f"schemas/{name}"))
         if raw(site.name, path, site.branch) != raw(owner.name, f"schemas/{name}", owner.branch):
-            report.add("fail", site.name, "schema copies", f"`{path}` differs from `{owner.name}`'s `schemas/{name}`: copy it again", [original, copy], why=SCHEMA_WHY)
+            report.add("fail", site.name, "schema copies", f"`{path}` differs from `{short(owner.name)}`'s `schemas/{name}`: copy it again", [original, copy], why=SCHEMA_WHY)
         else:
-            report.add("pass", site.name, "schema copies", f"`{path}` equals `{owner.name}`'s `schemas/{name}`", [original, copy], why=SCHEMA_WHY)
+            report.add("pass", site.name, "schema copies", f"`{path}` equals `{short(owner.name)}`'s `schemas/{name}`", [original, copy], why=SCHEMA_WHY)
 
 
 def check_runs(repo: Repo, report: Report) -> None:
@@ -344,7 +355,7 @@ def check_releases(repo: Repo, report: Report, named: dict[str, list[str]]) -> N
         links = [("the release", release_page(repo.name, tag))]
         reasons = []
         if users:
-            reasons.append(f"Named by {', '.join(users)}.")
+            reasons.append(f"Named by {', '.join(users)}; installed products download it.")
         if tag == latest:
             reasons.append("Marked Latest: the release people are told to download.")
         why = " ".join(reasons)
@@ -389,72 +400,148 @@ def check_type(repo: Repo, report: Report) -> None:
             report.add("pass", repo.name, "repo type", "it has no releases, as its type says", [], why=why)
 
 
-def check_latest(repo: Repo, report: Report, named: dict[str, list[str]]) -> None:
-    """Check 8: the release marked Latest, by the repo's type. An
-    installable repo's Latest is for the people who install it, independent
-    of the releases other products' remote configs name (the website repo's
-    CLAUDE.md, Repo types), so it's never compared with them; having none
-    (only pre-releases) passes for now: requiring stable releases is
-    deferred. A dependency needs no Latest; if it has one, it should be the
-    newest stable release the remote configs name, else it's a warning."""
+def reachable_releases(repos: dict[str, Repo], report: Report) -> dict[str, dict[str, list[str]]]:
+    """The dependency releases the recommended installs use (the website
+    repo's CLAUDE.md, Repo types): from each installable repo's Latest, the
+    releases its remote config names (the file of its `config-version`, in
+    its BUILD-INFO.json, on main), directly or through another installable
+    it names. Returns dependency repo -> tag -> how it's reached."""
+    reach: dict[str, dict[str, list[str]]] = {}
+    seen: set[tuple[str, str]] = set()
+
+    def walk(repo: Repo, tag: str, via: str) -> None:
+        if (repo.name, tag) in seen:
+            return
+        seen.add((repo.name, tag))
+        text = release_file(repo.name, tag, "BUILD-INFO.json")
+        try:
+            info = json.loads(text) if text else {}
+        except ValueError:
+            info = {}
+        version, product = info.get("config-version"), info.get("package-name")
+        if not version or not product:
+            report.add("warn", repo.name, "latest release",
+                       f"`{tag}`'s `BUILD-INFO.json` has no `config-version`, so the releases it uses can't be found",
+                       [("the release", release_page(repo.name, tag))],
+                       why="A dependency's Latest follows the releases the recommended installs use.")
+            return
+        path = f"remote-config/{product}/config-{version}.jsonc"
+        if path not in repo.files:
+            return  # A config version without a file: check 1 covers the repo's files.
+        config = json.loads(strip_comments(raw(repo.name, path, repo.branch)))
+        for name, dep in config.items():
+            if name == "$schema" or not isinstance(dep, dict) or dep.get("repo") not in repos:
+                continue
+            target, release = repos[dep["repo"]], dep.get("release", "")
+            step = f"{via} → `{name}` `{release}`"
+            if target.type == "dependency":
+                reach.setdefault(target.name, {}).setdefault(release, []).append(step)
+            elif target.type == "installable":
+                walk(target, release, step)
+
+    for repo in sorted(repos.values(), key=lambda r: r.name):
+        if repo.type == "installable" and repo.latest():
+            walk(repo, repo.latest(), f"`{repo.short}` `{repo.latest()}` (Latest)")
+    return reach
+
+
+def check_latest(repo: Repo, report: Report, reach: dict[str, dict[str, list[str]]]) -> None:
+    """Check 8: the release marked Latest, by the repo's type (the website
+    repo's CLAUDE.md, Repo types). An installable repo's Latest is for the
+    people who install it, independent of other products' configs, so it's
+    never compared with them; having none (only pre-releases) passes for
+    now, as requiring stable releases is deferred. A dependency's Latest
+    should be the newest release the recommended installs use (its
+    reachable releases); while that one is a pre-release, none or an older
+    stable one passes."""
     if not repo.releases() or repo.type not in ("installable", "dependency"):
         return
     latest = repo.latest()
-    stable_named = sorted(r["tag_name"] for r in repo.releases()
-                          if not r["prerelease"] and f"{repo.name}/{r['tag_name']}" in named)
-    why = "Tutorials and install guides send people to the release marked Latest."
-    releases_link = [("the releases", f"https://github.com/{repo.name}/releases")]
-    if latest is None:
-        if repo.type == "installable":
+    releases_link = ("the releases", f"https://github.com/{repo.name}/releases")
+    if repo.type == "installable":
+        why = "People are told to install the release marked Latest; for an installable it's independent of other products' configs."
+        if latest is None:
             report.add("pass", repo.name, "latest release",
                        "no release is marked Latest yet: every release is a pre-release (required once stable releases are)",
-                       releases_link, why=f"{why} The repo is installable.")
+                       [releases_link], why=why)
         else:
-            report.add("pass", repo.name, "latest release", "no release is marked Latest, as a dependency needs none",
-                       releases_link, why="Programs download a dependency as remote configs name it, not people.")
+            report.add("pass", repo.name, "latest release",
+                       f"`{latest}` is marked Latest, the release recommended to people who install it",
+                       [("the release", release_page(repo.name, latest))], why=why)
         return
-    links = [("the release", release_page(repo.name, latest))]
-    if repo.type == "installable":
+    # Only releases that exist: one a config names but that's missing is
+    # check 1's failure.
+    tags = {r["tag_name"] for r in repo.releases()}
+    uses = {t: v for t, v in reach.get(repo.name, {}).items() if t in tags}
+    why = "A dependency's Latest is the newest release the recommended installs (the installables' Latest) use."
+    if uses:
+        why += " Used: " + "; ".join(f"`{t}` by {', '.join(v)}" for t, v in sorted(uses.items(), reverse=True)) + "."
+    if not uses:
+        if latest is None:
+            report.add("pass", repo.name, "latest release",
+                       "no release is marked Latest, and no recommended install uses one yet", [releases_link], why=why)
+        else:
+            report.add("warn", repo.name, "latest release",
+                       f"`{latest}` is marked Latest, but no recommended install uses a release of it: it sends people to a release no product uses",
+                       [("the release", release_page(repo.name, latest)), releases_link], why=why)
+        return
+    target = max(uses)
+    target_release = next((r for r in repo.releases() if r["tag_name"] == target), None)
+    target_link = ("the release to mark Latest", release_page(repo.name, target))
+    if latest == target:
         report.add("pass", repo.name, "latest release",
-                   f"`{latest}` is marked Latest, the release recommended to people who install it",
-                   links, why=f"{why} The repo is installable; its Latest is independent of the releases other products' configs name.")
-        return
-    if repo.type == "dependency" and not stable_named:
-        report.add("warn", repo.name, "latest release",
-                   f"`{latest}` is marked Latest, but no remote config names a stable release of this dependency: it sends people to a release no product uses",
-                   links, why="Programs download a dependency as remote configs name it, not people.")
-        return
-    if stable_named and stable_named[-1] != latest:
-        users = named[f"{repo.name}/{stable_named[-1]}"]
-        report.add("warn", repo.name, "latest release",
-                   f"`{latest}` is marked Latest, but the remote configs recommend `{stable_named[-1]}`: mark it Latest, or repin",
-                   links + [("the recommended release", release_page(repo.name, stable_named[-1]))],
-                   why=f"{why} Named by {', '.join(users)}.")
+                   f"`{latest}` is marked Latest, the newest release the recommended installs use",
+                   [("the release", release_page(repo.name, latest))], why=why)
+    elif target_release is not None and target_release["prerelease"]:
+        report.add("pass", repo.name, "latest release",
+                   f"the newest release the recommended installs use, `{target}`, is a pre-release, so it can't be Latest yet",
+                   [("the release", release_page(repo.name, target))], why=why)
     else:
-        report.add("pass", repo.name, "latest release", f"`{latest}` is marked Latest"
-                   + (", the newest stable release the remote configs name" if stable_named else ""), links, why=why)
+        now_latest = f"`{latest}` is marked Latest" if latest else "no release is marked Latest"
+        report.add("warn", repo.name, "latest release",
+                   f"{now_latest}, but the newest release the recommended installs use is `{target}`: mark it Latest",
+                   [target_link], why=why)
 
 
 def write_summary(report: Report, checked: int, path: str) -> None:
-    """The run's summary page: the counts, then the failures, the warnings
-    (with links to fix them) and what passed, each as a table per repo."""
+    """The run's summary page, for people: one line with the counts, then
+    the failures and the warnings, each with how to fix it and why it's
+    checked, and last what passed, folded per repo."""
+    fails, warns, passes = report.count("fail"), report.count("warn"), report.count("pass")
+    status = "❌" if fails else "⚠️" if warns else "✅"
     lines = [
-        f"## repos-janitor: {checked} repos",
+        f"# {status} repos-janitor",
         "",
-        f"{report.count('fail')} failures, {report.count('warn')} warnings, {report.count('pass')} passed.",
+        f"**{fails} failures · {warns} warnings · {passes} passed**, in {checked} repos "
+        f"({now().strftime('%Y-%m-%d %H:%M')} UTC).",
     ]
-    sections = [("fail", "Failures", "Problem", "Fix it"),
-                ("warn", "Warnings", "Problem", "Fix it"),
-                ("pass", "Passed", "Item", "Links")]
-    for level, title, item, link in sections:
-        rows = sorted((r for r in report.rows if r[0] == level), key=lambda r: (r[1], r[2], r[3]))
-        lines += ["", f"## {title} ({len(rows)})"]
+
+    def item(check: str, message: str, links, why: str) -> list[str]:
+        fix = f" ({md_links(links)})" if links else ""
+        out = [f"- **{check}**: {message}{fix}"]
+        if why:
+            out.append(f"  <br><sub>Why: {why}</sub>")
+        return out
+
+    for level, title in (("fail", "❌ Failures"), ("warn", "⚠️ Warnings")):
+        rows = [r for r in report.problems() if r[0] == level]
         if not rows:
-            lines += ["", "None."]
+            continue
+        lines += ["", f"## {title}"]
         for repo in sorted({r[1] for r in rows}):
-            lines += ["", f"### `{repo}`", "", f"| Check | {item} | Why | {link} |", "| --- | --- | --- | --- |"]
+            lines += ["", f"### {short(repo)}", ""]
             for _, _, check, message, links, why in (r for r in rows if r[1] == repo):
-                lines.append(f"| {check} | {message.replace('|', chr(92) + '|')} | {why} | {md_links(links)} |")
+                lines += item(check, message, links, why)
+    if not fails and not warns:
+        lines += ["", "No problems."]
+    rows = sorted((r for r in report.rows if r[0] == "pass"), key=lambda r: (r[1], r[2], r[3]))
+    lines += ["", "## ✅ Passed"]
+    for repo in sorted({r[1] for r in rows}):
+        mine = [r for r in rows if r[1] == repo]
+        lines += ["", f"<details><summary><b>{short(repo)}</b>: {len(mine)} passed</summary>", ""]
+        for _, _, check, message, links, why in mine:
+            lines += item(check, message, links, why)
+        lines += ["", "</details>"]
     Path(path).write_text("\n".join(lines) + "\n")
 
 
@@ -475,13 +562,14 @@ def main() -> int:
     for repo in sorted(repos.values(), key=lambda r: r.name):
         entries = check_configs(repo, report, PLATFORMS)
         for e in entries:
-            named.setdefault(f"{e.get('repo')}/{e.get('release')}", []).append(f"`{repo.name}`'s `{e['config']}`")
+            named.setdefault(f"{e.get('repo')}/{e.get('release')}", []).append(f"`{repo.short}`'s `{e['config'].rsplit('/', 1)[-1]}`")
         check_pins(repo, entries, repos, report, PLATFORMS, state, new_state)
         check_runs(repo, report)
+    reach = reachable_releases(repos, report)
     for repo in sorted(repos.values(), key=lambda r: r.name):
         check_type(repo, report)
         check_releases(repo, report, named)
-        check_latest(repo, report, named)
+        check_latest(repo, report, reach)
     check_schemas(repos, report)
 
     state_file.write_text(json.dumps(new_state, indent=2, sort_keys=True) + "\n")
