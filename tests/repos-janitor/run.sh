@@ -28,29 +28,36 @@ for text in \
   "<details><summary><b>openlogix/logix-core</b> · " \
   "- Release should be valid" \
   "    - [Why] Named by logix-ide [\`001/dev.jsonc\`](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc)." \
-  "    - [Result] It has no \`BUILD-INFO.json\`." \
-  "    - [Fix] [the release](https://github.com/openlogix/logix-catalog/releases/tag/2026-11-01)" \
-  "    - [Fix] [the workflow](https://github.com/openlogix/logix-engine/actions/workflows/test.yaml) · [the run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
+  "    - [Result] No \`BUILD-INFO.json\`." \
+  "    - [Fix] [release](https://github.com/openlogix/logix-catalog/releases/tag/2026-11-01)" \
+  "    - [Fix] [workflow](https://github.com/openlogix/logix-engine/actions/workflows/test.yaml) · [run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
+  "    - [Result] Failure (2026-11-14 00:00 UTC)." \
   "- Latest should be a prod release" \
-  "    - [Result] It's on dev: promote it, or mark a prod release Latest." \
-  "    - [Result] It's on the prod list of its version's \`channels.jsonc\`." \
-  "    - [Result] No release is prod yet, so none can be Latest." \
+  "    - [Result] On dev, not prod." \
+  "    - [Result] Prod." \
+  "    - [Result] No prod release yet." \
   "- Release should be Latest" \
   "    - [Why] Used by a recommended install: logix-engine [\`2026-11-01\`](https://github.com/openlogix/logix-engine/releases/tag/2026-11-01) (Latest) → [\`001/prod.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/prod.jsonc) → logix-core \`2026-11-03\`." \
   "    - [Why] On the prod list of [\`001/channels.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/channels.jsonc)." \
   "- Latest should be used by a recommended install" \
+  "    - [Result] Not used by a recommended install." \
   "- Dev config should not lag behind prod" \
-  "    - [Result] Older than prod's \`2026-11-05\`: delete \`001/dev.jsonc\`, or repin it." \
+  "    - [Result] Older than prod's \`2026-11-05\`." \
+  "    - [Fix] [dev config](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc) · [prod config](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/prod.jsonc)" \
   "- Daily build should be recent" \
+  "    - [Result] Last run 2 day(s) ago (2026-11-12 00:00 UTC)." \
   "- Repo metadata should be valid" \
   "    - [Why] A repo of the openlogix org." \
-  "    - [Result] Its type is \`installable\`." \
-  "    - [Result] There's no \`.github/logix-repo-metadata.jsonc\`." \
-  "    - [Fix] [create the file](https://github.com/openlogix/openlogix.github.io/new/main?filename=.github/logix-repo-metadata.jsonc)" \
+  "    - [Result] Type \`installable\`." \
+  "    - [Result] Missing." \
+  "    - [Fix] [create it](https://github.com/openlogix/openlogix.github.io/new/main?filename=.github/logix-repo-metadata.jsonc)" \
   "- Repo should have no releases" \
+  "    - [Result] Has releases: \`2026-11-01\`." \
   "- Release tag should be a date" \
-  "    - [Result] Not date-tagged: \`test-1-stable\`, \`test-1-p1\`. Delete them, or publish them again under their date." \
-  "    - [Result] All 3 releases are date-tagged."; do
+  "    - [Result] Not date-tagged: \`test-1-stable\`, \`test-1-p1\`." \
+  "    - [Result] All date-tagged." \
+  "- Schema copy should match its owner" \
+  "    - [Result] Differs."; do
   grep -qF -- "$text" "$tmp/summary.md" || fail "the summary has no \"$text\""
 done
 # No warnings: every failure is an error.
@@ -62,7 +69,7 @@ r = json.load(open(sys.argv[1]))
 assert r["passed"] is False and set(r) == {"passed", "failures", "successes"}, list(r)
 e = r["failures"]["openlogix/logix-catalog"]["release-should-be-valid"][0]
 assert e["release_tag"] == "2026-11-01" and e["notes"] == [
-    "[Why] Named by logix-ide 001/dev.jsonc.", "[Result] It has no BUILD-INFO.json."], e
+    "[Why] Named by logix-ide 001/dev.jsonc.", "[Result] No BUILD-INFO.json."], e
 assert "dev-should-not-lag-behind-prod" in r["failures"]["openlogix/logix-ide"]
 assert "latest-should-be-prod" in r["successes"]["openlogix/logix-engine"]
 PYEOF

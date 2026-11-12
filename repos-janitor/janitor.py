@@ -228,18 +228,18 @@ class Repo:
 
     def read_metadata(self) -> tuple[str | None, str | None]:
         if METADATA not in self.files:
-            return None, f"There's no `{METADATA}`."
+            return None, "Missing."
         try:
             data = json.loads(strip_comments(raw(self.name, METADATA, self.branch)))
         except ValueError as e:
-            return None, f"It isn't valid JSONC: {e}"
+            return None, f"Not valid JSONC: {e}"
         if not isinstance(data, dict) or data.get("$schema") != METADATA_SCHEMA:
-            return None, f"Its `$schema` must be `{METADATA_SCHEMA}`."
+            return None, f"`$schema` isn't `{METADATA_SCHEMA}`."
         extra = sorted(set(data) - {"$schema", "type"})
         if extra:
-            return None, f"It has unknown keys: {', '.join(f'`{k}`' for k in extra)}."
+            return None, f"Unknown keys: {', '.join(f'`{k}`' for k in extra)}."
         if data.get("type") not in TYPES:
-            return None, f"Its `type` must be {', '.join(f'`{t}`' for t in TYPES)}, not `{data.get('type')}`."
+            return None, f"Unknown type `{data.get('type')}`."
         return data["type"], None
 
     def latest(self) -> str | None:
@@ -289,7 +289,7 @@ class Repo:
 
 def req_release(repo: Repo, tag: str, report: Report, req: str) -> Instance:
     return report.require(repo.name, req, tag, f"[`{tag}`]({release_page(repo.name, tag)})", tag,
-                          release_tag=tag).link("the release", release_page(repo.name, tag))
+                          release_tag=tag).link("release", release_page(repo.name, tag))
 
 
 # ---------------------------------------------------------------- analyzers and verifiers
@@ -310,7 +310,7 @@ def check_configs(repo: Repo, report: Report) -> list[dict]:
             why = f"In {product}'s remote config folder."
         url = blob(repo.name, repo.branch, p)
         report.require(repo.name, "config-should-be-valid", p, f"[`{config_name(p)}`]({url})",
-                       config_name(p), file=p).because(why).link("the file", url)
+                       config_name(p), file=p).because(why).link("file", url)
     entries = []
     with tempfile.TemporaryDirectory() as tmp:
         for p in paths:
@@ -343,10 +343,9 @@ def check_configs(repo: Repo, report: Report) -> list[dict]:
         if problems.get(p):
             inst.verdict(False, " ".join(problems[p]))
         elif problems.get(""):
-            inst.verdict(False, "Its folder has problems: " + " ".join(problems[""]))
+            inst.verdict(False, "Folder problems: " + " ".join(problems[""]))
         else:
-            inst.verdict(True, "Valid" + (", and every release and file it names exists."
-                                          if CHANNEL_CONFIG.match(p) else "."))
+            inst.verdict(True, "Valid.")
     return entries
 
 
@@ -372,9 +371,9 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
                 f"[`{cfg}`]({cfg_url}) → {e['name']} [`{tag}`]({release_page(dep.name, tag)})",
                 f"{cfg} → {e['name']} {tag}", config=cfg, dependency=e["name"], release_tag=tag)
             inst.because(f"A dev config next to [`{prod_cfg}`]({prod_url}).")
-            inst.link("the dev config, to repin or delete", cfg_url).link("the prod config", prod_url)
+            inst.link("dev config", cfg_url).link("prod config", prod_url)
             if tag < prod["release"]:
-                inst.verdict(False, f"Older than prod's `{prod['release']}`: delete `{cfg}`, or repin it.")
+                inst.verdict(False, f"Older than prod's `{prod['release']}`.")
             else:
                 inst.verdict(True, "Same as prod's." if tag == prod["release"]
                              else f"Newer than prod's `{prod['release']}`.")
@@ -411,18 +410,16 @@ def check_releases(repos: dict[str, Repo], entries_by_repo: dict[str, list[dict]
         repo = repos[inst.repo]
         r = repo.release(inst.fields["release_tag"])
         if r is None:
-            inst.verdict(False, "The release is missing.")
+            inst.verdict(False, "Missing.")
         elif inst.req == "release-should-be-stable":
-            inst.verdict(not r["prerelease"], "The release is stable." if not r["prerelease"]
-                         else "The release is a pre-release: mark it stable on its page.")
+            inst.verdict(not r["prerelease"], "Stable." if not r["prerelease"] else "A pre-release.")
         else:
             assets = {a["name"] for a in r["assets"]}
             missing = [f"`{f}`" for f in ("SHA256SUMS", "BUILD-INFO.json") if f not in assets]
             extra = sorted(set(sums(repo.name, r["tag_name"]) or {}) - assets)
-            problems = ([f"It has no {' or '.join(missing)}."] if missing else []) + \
-                       [f"Its `SHA256SUMS` lists `{f}`, which it doesn't have." for f in extra]
-            inst.verdict(not problems, " ".join(problems) or
-                         "It has `SHA256SUMS`, `BUILD-INFO.json` and every file `SHA256SUMS` lists.")
+            problems = ([f"No {' or '.join(missing)}."] if missing else []) + \
+                       [f"`SHA256SUMS` lists `{f}`, which isn't there." for f in extra]
+            inst.verdict(not problems, " ".join(problems) or "Complete.")
 
 
 def release_channel(repo: Repo, tag: str) -> str | None:
@@ -489,24 +486,23 @@ def check_latest(repo: Repo, reach: dict, report: Report) -> None:
         if latest is None:
             inst = report.require(repo.name, "latest-should-be-prod", "(none)", "no release is Latest", "no release is Latest")
             inst.because("An installable repo with releases.")
-            inst.link("the releases", releases_page(repo.name))
-            inst.verdict(not prod, "No release is prod yet, so none can be Latest." if not prod
-                         else f"Prod releases exist ({', '.join(f'`{t}`' for t in sorted(prod))}): mark the newest one Latest.")
+            inst.link("releases", releases_page(repo.name))
+            inst.verdict(not prod, "No prod release yet." if not prod
+                         else f"No Latest, but prod releases exist: {', '.join(f'`{t}`' for t in sorted(prod))}.")
             return
         inst = req_release(repo, latest, report, "latest-should-be-prod")
         inst.because("Marked Latest.")
         channel = release_channel(repo, latest)
         if channel == "prod":
-            inst.verdict(True, "It's on the prod list of its version's `channels.jsonc`.")
+            inst.verdict(True, "Prod.")
         else:
-            inst.verdict(False, f"It's on {channel}: promote it, or mark a prod release Latest." if channel
-                         else "Its channel can't be told: no `config-version` in its `BUILD-INFO.json`, or no `channels.jsonc`.")
+            inst.verdict(False, f"On {channel}, not prod." if channel
+                         else "Channel unknown: no `config-version` in `BUILD-INFO.json`, or no `channels.jsonc`.")
         if prod:
             newest = max(prod)
             rel = req_release(repo, newest, report, "release-should-be-latest")
             rel.because("The newest prod release.")
-            rel.verdict(latest == newest, "The release is Latest." if latest == newest
-                        else f"Latest is `{latest}`: mark this one Latest.")
+            rel.verdict(latest == newest, "Latest." if latest == newest else f"Not Latest (Latest is `{latest}`).")
         return
     tags = {r["tag_name"] for r in repo.releases()}
     uses = {t: v for t, v in reach.get(repo.name, {}).items() if t in tags}
@@ -514,7 +510,7 @@ def check_latest(repo: Repo, reach: dict, report: Report) -> None:
         if latest:
             inst = req_release(repo, latest, report, "latest-should-be-used")
             inst.because("Marked Latest.")
-            inst.verdict(False, "No recommended install uses this dependency.")
+            inst.verdict(False, "Not used by a recommended install.")
         return
     target = max(uses)
     inst = req_release(repo, target, report, "release-should-be-latest")
@@ -525,11 +521,11 @@ def check_latest(repo: Repo, reach: dict, report: Report) -> None:
         inst.because(f"Newer than the others recommended installs use ({', '.join(others)}).")
     rel = repo.release(target)
     if latest == target:
-        inst.verdict(True, "The release is Latest.")
+        inst.verdict(True, "Latest.")
     elif rel is not None and rel["prerelease"]:
-        inst.verdict(True, "It's a pre-release, so it can't be Latest yet.")
+        inst.verdict(True, "A pre-release: can't be Latest yet.")
     else:
-        inst.verdict(False, f"{'Latest is `' + latest + '`' if latest else 'No release is Latest'}: mark this one Latest.")
+        inst.verdict(False, f"Not Latest ({'Latest is `' + latest + '`' if latest else 'no Latest'}).")
 
 
 def check_schemas(repos: dict[str, Repo], report: Report) -> None:
@@ -544,14 +540,14 @@ def check_schemas(repos: dict[str, Repo], report: Report) -> None:
                       if f"{ORG}/{o}" in repos and f"schemas/{name}" in repos[f"{ORG}/{o}"].files), None)
         copy = blob(site.name, site.branch, path)
         inst = report.require(site.name, "schema-copy-should-match", path, f"[`{path}`]({copy})", path, file=path)
-        inst.because("A schema copy on the website.").link("the copy", copy)
+        inst.because("A schema copy on the website.").link("copy", copy)
         if owner is None:
-            inst.verdict(False, f"No owner has `schemas/{name}` ({', '.join(SCHEMA_OWNERS)}).")
+            inst.verdict(False, f"No owner file `schemas/{name}`.")
             continue
         original = blob(owner.name, owner.branch, f"schemas/{name}")
-        inst.because(f"Its owner: {owner.short} [`schemas/{name}`]({original}).").link("the owner's file", original)
+        inst.because(f"Its owner: {owner.short} [`schemas/{name}`]({original}).").link("owner's file", original)
         same = raw(site.name, path, site.branch) == raw(owner.name, f"schemas/{name}", owner.branch)
-        inst.verdict(same, "Equal to its owner's file." if same else "It differs from its owner's file: copy it again.")
+        inst.verdict(same, "Matches." if same else "Differs.")
 
 
 def check_runs(repo: Repo, report: Report) -> None:
@@ -570,19 +566,19 @@ def check_runs(repo: Repo, report: Report) -> None:
         ok = report.require(repo.name, "daily-build-should-pass", file, f"[`{file}`]({wf})", file, workflow=file)
         recent = report.require(repo.name, "daily-build-should-be-recent", file, f"[`{file}`]({wf})", file, workflow=file)
         for inst in (ok, recent):
-            inst.because(why).link("the workflow", wf)
+            inst.because(why).link("workflow", wf)
         if run is None:
-            recent.verdict(False, "It has no completed scheduled run yet.")
+            recent.verdict(False, "No scheduled run yet.")
             continue
-        ok.link("the run", run["html_url"])
-        recent.link("the run", run["html_url"])
+        ok.link("run", run["html_url"])
+        recent.link("run", run["html_url"])
         started = dt.datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
         when = started.strftime("%Y-%m-%d %H:%M UTC")
         ok.verdict(run["conclusion"] == "success",
-                   f"The last scheduled run ({when}) passed." if run["conclusion"] == "success"
-                   else f"The last scheduled run ({when}) ended: {run['conclusion']}.")
+                   f"Passed ({when})." if run["conclusion"] == "success"
+                   else f"{run['conclusion'].capitalize()} ({when}).")
         age = now() - started
-        recent.verdict(age <= RUN_MAX_AGE, f"The last scheduled run was {age.days} day(s) ago ({when}).")
+        recent.verdict(age <= RUN_MAX_AGE, f"Last run {age.days} day(s) ago ({when}).")
 
 
 def check_tags(repo: Repo, report: Report) -> None:
@@ -593,12 +589,12 @@ def check_tags(repo: Repo, report: Report) -> None:
     inst = report.require(repo.name, "release-tag-should-be-a-date", repo.name, f"[{repo.name} releases]({page})",
                           f"{repo.name} releases")
     inst.because("An openlogix repo with releases.")
-    inst.link("the releases", page)
+    inst.link("releases", page)
     bad = [r["tag_name"] for r in repo.all_releases() if not DATE_TAG.match(r["tag_name"])]
     for tag in bad:
         inst.link(f"`{tag}`", release_page(repo.name, tag))
-    inst.verdict(not bad, f"All {plural(len(repo.all_releases()), 'release')} are date-tagged." if not bad
-                 else f"Not date-tagged: {', '.join(f'`{t}`' for t in bad)}. Delete them, or publish them again under their date.")
+    inst.verdict(not bad, "All date-tagged." if not bad
+                 else f"Not date-tagged: {', '.join(f'`{t}`' for t in bad)}.")
 
 
 def check_type(repo: Repo, report: Report) -> None:
@@ -609,19 +605,19 @@ def check_type(repo: Repo, report: Report) -> None:
                           f"[`{METADATA}`]({file_url})", METADATA, file=METADATA)
     inst.because("A repo of the openlogix org.")
     if METADATA in repo.files:
-        inst.link("the file", file_url)
+        inst.link("file", file_url)
     else:
-        inst.link("create the file", f"https://github.com/{repo.name}/new/{repo.branch}?filename={METADATA}")
+        inst.link("create it", f"https://github.com/{repo.name}/new/{repo.branch}?filename={METADATA}")
     if repo.metadata_problem:
         inst.verdict(False, repo.metadata_problem)
         return
-    inst.verdict(True, f"Its type is `{repo.type}`.")
+    inst.verdict(True, f"Type `{repo.type}`.")
     if repo.type == "no-releases":
         nr = report.require(repo.name, "repo-should-have-no-releases", repo.name, f"[{repo.name}]({page})", repo.name)
-        nr.because(f"Its type is `no-releases` ([`{METADATA}`]({file_url})).").link("the releases", releases_page(repo.name))
+        nr.because(f"Its type is `no-releases` ([`{METADATA}`]({file_url})).").link("releases", releases_page(repo.name))
         tags = [r["tag_name"] for r in repo.all_releases()]
-        nr.verdict(not tags, "It has no releases." if not tags
-                   else f"It has releases: {', '.join(f'`{t}`' for t in tags)}. Delete them, or change the type.")
+        nr.verdict(not tags, "No releases." if not tags
+                   else f"Has releases: {', '.join(f'`{t}`' for t in tags)}.")
 
 
 # ---------------------------------------------------------------- output
