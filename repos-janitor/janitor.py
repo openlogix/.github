@@ -48,10 +48,11 @@ SCHEMA_OWNERS = ["logix-catalog", ".github"]
 CONFIG_FILE = re.compile(r"^remote-config/([^/]+)/([^/]+)/([^/]+)$")
 CHANNEL_CONFIG = re.compile(r"^remote-config/[^/]+/[0-9]{3}/(?!channels\.jsonc$)[a-z][a-z0-9-]*\.jsonc$")
 WORKFLOW = re.compile(r"^\.github/workflows/[^/]+\.ya?ml$")
-# Repo types (the website repo's CLAUDE.md, Repo types): one GitHub topic
-# per repo.
-TYPES = {"openlogix-installable": "installable", "openlogix-dependency": "dependency",
-         "openlogix-no-releases": "no releases"}
+# Repo types (the website repo's CLAUDE.md, Repo types), from each repo's
+# metadata file.
+METADATA = ".github/logix-repo-metadata.jsonc"
+METADATA_SCHEMA = "https://www.openlogix.org/schemas/logix-repo-metadata-v1.json"
+TYPES = ["installable", "dependency", "no-releases"]
 # Where the release model's rules are (Remote updates, Repo types).
 POLICY_URL = "https://github.com/openlogix/openlogix.github.io/blob/main/CLAUDE.md"
 DATE_TAG = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
@@ -75,7 +76,7 @@ REQUIREMENTS = {
     "schema-copy-should-match": "Schema copy should match its owner",
     "daily-build-should-pass": "Daily build should pass",
     "daily-build-should-be-recent": "Daily build should be recent",
-    "repo-should-have-one-type": "Repo should have one type",
+    "repo-metadata-should-be-valid": "Repo metadata should be valid",
     "repo-should-have-no-releases": "Repo should have no releases",
 }
 
@@ -217,13 +218,29 @@ class Repo:
         self.name = info["full_name"]
         self.short = info["name"]
         self.branch = info["default_branch"]
-        self.topics = sorted(t for t in info.get("topics", []) if t in TYPES)
-        self.type = TYPES[self.topics[0]] if len(self.topics) == 1 else None
         tree = api(f"repos/{self.name}/git/trees/{self.branch}?recursive=1") or {}
         self.files = [t["path"] for t in tree.get("tree", []) if t["type"] == "blob"]
         self._releases = None
         self._latest = "unread"
         self._channels = None
+        # The metadata file: its problem (None when it's valid) and the type.
+        self.type, self.metadata_problem = self.read_metadata()
+
+    def read_metadata(self) -> tuple[str | None, str | None]:
+        if METADATA not in self.files:
+            return None, f"There's no `{METADATA}`."
+        try:
+            data = json.loads(strip_comments(raw(self.name, METADATA, self.branch)))
+        except ValueError as e:
+            return None, f"It isn't valid JSONC: {e}"
+        if not isinstance(data, dict) or data.get("$schema") != METADATA_SCHEMA:
+            return None, f"Its `$schema` must be `{METADATA_SCHEMA}`."
+        extra = sorted(set(data) - {"$schema", "type"})
+        if extra:
+            return None, f"It has unknown keys: {', '.join(f'`{k}`' for k in extra)}."
+        if data.get("type") not in TYPES:
+            return None, f"Its `type` must be {', '.join(f'`{t}`' for t in TYPES)}, not `{data.get('type')}`."
+        return data["type"], None
 
     def latest(self) -> str | None:
         """The tag GitHub marks Latest; None without a stable release, or
@@ -592,25 +609,25 @@ def check_tags(repo: Repo, report: Report) -> None:
 
 
 def check_type(repo: Repo, report: Report) -> None:
-    """repo-should-have-one-type and repo-should-have-no-releases."""
+    """repo-metadata-should-be-valid and repo-should-have-no-releases."""
     page = f"https://github.com/{repo.name}"
-    inst = report.require(repo.name, "repo-should-have-one-type", repo.name, f"[{repo.name}]({page})", repo.name)
-    inst.because("Each Open Logix repo declares its type with one GitHub topic, shown under About on its GitHub page: "
-                 "`openlogix-installable` (people install it), `openlogix-dependency` (programs download it) or "
-                 "`openlogix-no-releases` (it's only read). The type decides its release policy "
-                 f"([Repo types]({POLICY_URL})).")
-    inst.link("the repo's page (topics under About)", page)
-    if not repo.topics:
-        inst.verdict(False, "It has no type topic: add `openlogix-installable`, `openlogix-dependency` "
-                            "or `openlogix-no-releases`.")
+    file_url = blob(repo.name, repo.branch, METADATA)
+    inst = report.require(repo.name, "repo-metadata-should-be-valid", repo.name,
+                          f"[`{METADATA}`]({file_url})", METADATA, file=METADATA)
+    inst.because(f"Each Open Logix repo declares its type in `{METADATA}`: `installable` (people install it), "
+                 "`dependency` (programs download it) or `no-releases` (it's only read). The type decides its "
+                 f"release policy ([Repo types]({POLICY_URL})).")
+    if METADATA in repo.files:
+        inst.link("the file", file_url)
+    else:
+        inst.link("create the file", f"https://github.com/{repo.name}/new/{repo.branch}?filename={METADATA}")
+    if repo.metadata_problem:
+        inst.verdict(False, repo.metadata_problem)
         return
-    if len(repo.topics) > 1:
-        inst.verdict(False, f"It has several: {', '.join(f'`{t}`' for t in repo.topics)}. Keep one.")
-        return
-    inst.verdict(True, f"Its type is \"{repo.type}\": it has the topic `{repo.topics[0]}`.")
-    if repo.type == "no releases":
+    inst.verdict(True, f"Its type is `{repo.type}`.")
+    if repo.type == "no-releases":
         nr = report.require(repo.name, "repo-should-have-no-releases", repo.name, f"[{repo.name}]({page})", repo.name)
-        nr.because(f"Its type is \"no releases\" (topic `openlogix-no-releases`): it's only read, never downloaded "
+        nr.because(f"Its type is `no-releases` ([`{METADATA}`]({file_url})): it's only read, never downloaded "
                    f"([Repo types]({POLICY_URL})).").link("the releases", releases_page(repo.name))
         tags = [r["tag_name"] for r in repo.all_releases()]
         nr.verdict(not tags, "It has no releases." if not tags

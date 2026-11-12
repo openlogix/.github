@@ -1,0 +1,7 @@
+// This repo's Open Logix metadata, read by repos-janitor (the website repo's
+// CLAUDE.md, Repo types, owns the policy). Change it only by pull request.
+{
+  "$schema": "https://www.openlogix.org/schemas/logix-repo-metadata-v1.json",
+  // Only read: shared actions, schemas and repos-janitor.
+  "type": "no-releases"
+}

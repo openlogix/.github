@@ -1,0 +1,5 @@
+// This repo's Open Logix type.
+{
+  "$schema": "https://www.openlogix.org/schemas/logix-repo-metadata-v1.json",
+  "type": "dependency"
+}

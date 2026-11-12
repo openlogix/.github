@@ -12,5 +12,5 @@
 ::error title=Latest should be a prod release (openlogix/logix-studio)::2026-11-02: It's on dev: promote it, or mark a prod release Latest.
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-other-v1.json: No owner has schemas/logix-other-v1.json (logix-catalog, .github).
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-remote-config-v1.json: It differs from its owner's file: copy it again.
-::error title=Repo should have one type (openlogix/openlogix.github.io)::openlogix/openlogix.github.io: It has no type topic: add openlogix-installable, openlogix-dependency or openlogix-no-releases.
+::error title=Repo metadata should be valid (openlogix/openlogix.github.io)::.github/logix-repo-metadata.jsonc: There's no .github/logix-repo-metadata.jsonc.
 repos-janitor: 8 repos, 15 errors, 36 passed.

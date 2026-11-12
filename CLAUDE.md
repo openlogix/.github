@@ -4,11 +4,12 @@ Guidance for Claude working in this repo, `openlogix/.github`. It is GitHub's sp
 
 ## What's here
 
-**Repo type: no releases** (topic `openlogix-no-releases`; the website repo's `CLAUDE.md`, Repo types, owns the policy). Its tests make no releases (the release tests use a fake `gh`), so it has none.
+**Repo type: no releases** (`.github/logix-repo-metadata.jsonc`; the website repo's `CLAUDE.md`, Repo types, owns the policy). Its tests make no releases (the release tests use a fake `gh`), so it has none.
 
 - `actions/<name>/action.yaml`: composite GitHub Actions shared by the Open Logix repos' CI and release workflows. [README.md](README.md) lists them.
 - `.github/workflows/actions-test.yaml`: tests the actions.
 - `profile/README.md`: the org page at github.com/openlogix. A table of all Open Logix repos for developers: repo, what it is, status. The repo list, descriptions and statuses follow the website repo's `CLAUDE.md` (Repos, Availability); when those change, update this table too.
+- `schemas/logix-repo-metadata-v1.json`: the schema of every repo's `.github/logix-repo-metadata.jsonc` (its type; Repo types, in the website repo's `CLAUDE.md`), owned here, with a copy on the website.
 - `schemas/logix-remote-config-v1.json`: the schema every remote config names in `$schema` (Remote updates, the website repo's `CLAUDE.md`), owned here; the website serves a copy at `www.openlogix.org/schemas/`, so copy it there whenever it changes. Until the first release it changes without a new version.
 - `tests/<action>/`: fixtures for an action's tests, such as `tests/check-remote-config/` (cases, fixture releases, a fake `gh` and `run.sh`).
 - Later, possibly: default community files (`CONTRIBUTING.md`, `SECURITY.md`, issue templates) and `workflow-templates/`. Add them only when asked.
@@ -37,7 +38,7 @@ A workflow here that checks what no single repo's CI can see and reports problem
   | `schema-copy-should-match` | a website `docs/schemas/` file |
   | `daily-build-should-pass` | a scheduled workflow's last scheduled run on `main` |
   | `daily-build-should-be-recent` | the same, run in the last 26 hours |
-  | `repo-should-have-one-type` | a repo's type topics |
+  | `repo-metadata-should-be-valid` | a repo's `.github/logix-repo-metadata.jsonc`: present, valid against `schemas/logix-repo-metadata-v1.json` (`type`: `installable`, `dependency`, `no-releases`) |
   | `repo-should-have-no-releases` | a "no releases" repo |
 
   The rules behind them are the website repo's `CLAUDE.md` (Remote updates, Repo types).

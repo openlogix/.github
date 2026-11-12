@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.openlogix.org/schemas/logix-repo-metadata-v1.json",
+  "title": "Open Logix repo metadata",
+  "description": "What an Open Logix repo is, for the org's tools: .github/logix-repo-metadata.jsonc in each repo, changed only by pull request. repos-janitor reads it. The file is JSONC: comments say why.",
+  "type": "object",
+  "required": ["$schema", "type"],
+  "properties": {
+    "$schema": {
+      "const": "https://www.openlogix.org/schemas/logix-repo-metadata-v1.json"
+    },
+    "type": {
+      "description": "The repo type, which decides its release policy (Repo types, in the website repo's CLAUDE.md): installable (a product people install, from its release marked Latest; also when programs download it too), dependency (data or tools programs download, as remote configs name them) or no-releases (it's only read: no releases at all).",
+      "enum": ["installable", "dependency", "no-releases"]
+    }
+  },
+  "additionalProperties": false
+}
