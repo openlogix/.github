@@ -1,5 +1,6 @@
 ::error title=Release tag should be a date (openlogix/.github)::openlogix/.github releases: Not date-tagged: test-1-stable, test-1-p1.
 ::error title=Repo should have no releases (openlogix/.github)::openlogix/.github: Has releases: test-1-stable, test-1-p1.
+::error title=Repo settings should match (openlogix/.github)::openlogix/.github: Mismatch: private vulnerability reporting should be on.
 ::error title=Release should be valid (openlogix/logix-catalog)::2026-11-01: No BUILD-INFO.json.
 ::error title=Release should be valid (openlogix/logix-catalog)::2026-11-30: Missing.
 ::error title=Latest should be used by a recommended install (openlogix/logix-catalog)::2026-11-05: Not used by a recommended install.
@@ -7,10 +8,12 @@
 ::error title=Config should be valid (openlogix/logix-engine)::001/dev.jsonc: logix-catalog: no release 2026-11-30 in openlogix/logix-catalog (HTTP 404: Not Found)
 ::error title=Release should be valid (openlogix/logix-engine)::2026-11-10: SHA256SUMS lists logix-engine-linux-x86-64-20261110.tgz, which isn't there.
 ::error title=Daily build should pass (openlogix/logix-engine)::test.yaml: Failure (2026-11-14 00:00 UTC).
+::error title=Repo settings should match (openlogix/logix-engine)::openlogix/logix-engine: Mismatch: wiki should be off.
 ::error title=Dev config should not lag behind prod (openlogix/logix-ide)::001/dev.jsonc → logix-catalog 2026-11-01: Older than prod's 2026-11-05.
 ::error title=Daily build should be recent (openlogix/logix-ide)::build.yaml: Last run 2 day(s) ago (2026-11-12 00:00 UTC).
 ::error title=Latest should be a prod release (openlogix/logix-studio)::2026-11-02: On dev, not prod.
+::error title=Repo settings should match (openlogix/logix-studio)::openlogix/logix-studio: Mismatch: its README should link openlogix/logix-ide's issues.
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-other-v1.json: No owner file schemas/logix-other-v1.json.
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-remote-config-v1.json: Differs.
 ::error title=Repo metadata should be valid (openlogix/openlogix.github.io)::.github/logix-repo-metadata.jsonc: Missing.
-repos-janitor: 8 repos, 15 failed, 36 passed.
+repos-janitor: 8 repos, 18 failed, 40 passed.

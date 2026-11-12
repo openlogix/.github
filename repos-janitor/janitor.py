@@ -78,6 +78,7 @@ REQUIREMENTS = {
     "daily-build-should-be-recent": "Daily build should be recent",
     "repo-metadata-should-be-valid": "Repo metadata should be valid",
     "repo-should-have-no-releases": "Repo should have no releases",
+    "repo-settings-should-match": "Repo settings should match",
 }
 
 
@@ -215,6 +216,7 @@ class Repo:
     """One repo: its type, default branch, file list and releases (read once)."""
 
     def __init__(self, info: dict) -> None:
+        self.info = info
         self.name = info["full_name"]
         self.short = info["name"]
         self.branch = info["default_branch"]
@@ -223,7 +225,9 @@ class Repo:
         self._releases = None
         self._latest = "unread"
         self._channels = None
-        # The metadata file: its problem (None when it's valid) and the type.
+        # The metadata file: its problem (None when it's valid), the type and
+        # where its issues go.
+        self.issues = None
         self.type, self.metadata_problem = self.read_metadata()
 
     def read_metadata(self) -> tuple[str | None, str | None]:
@@ -235,11 +239,15 @@ class Repo:
             return None, f"Not valid JSONC: {e}"
         if not isinstance(data, dict) or data.get("$schema") != METADATA_SCHEMA:
             return None, f"`$schema` isn't `{METADATA_SCHEMA}`."
-        extra = sorted(set(data) - {"$schema", "type"})
+        extra = sorted(set(data) - {"$schema", "type", "issues"})
         if extra:
             return None, f"Unknown keys: {', '.join(f'`{k}`' for k in extra)}."
         if data.get("type") not in TYPES:
             return None, f"Unknown type `{data.get('type')}`."
+        issues = data.get("issues")
+        if not isinstance(issues, str) or not re.match(r"^(here|openlogix/[A-Za-z0-9._-]+)$", issues):
+            return None, f"Its `issues` must be `here` or a repo such as `openlogix/logix-engine`, not `{issues}`."
+        self.issues = issues
         return data["type"], None
 
     def latest(self) -> str | None:
@@ -620,6 +628,38 @@ def check_type(repo: Repo, report: Report) -> None:
                    else f"Has releases: {', '.join(f'`{t}`' for t in tags)}.")
 
 
+def check_settings(repo: Repo, repos: dict[str, Repo], report: Report) -> None:
+    """repo-settings-should-match: the GitHub features users see follow the
+    org rule (the website repo's CLAUDE.md, Contact and GitHub features):
+    issues only where the metadata says `here`, else a README line sending
+    people to the repo that takes them; no wiki, Discussions or Projects;
+    private vulnerability reporting on."""
+    if repo.issues is None:
+        return  # repo-metadata-should-be-valid reports it.
+    inst = report.require(repo.name, "repo-settings-should-match", repo.name,
+                          f"[{repo.name}](https://github.com/{repo.name})", repo.name)
+    inst.because("A repo of the openlogix org.").link("settings", f"https://github.com/{repo.name}/settings")
+    wrong = []
+    takes = repo.issues == "here"
+    if bool(repo.info.get("has_issues")) != takes:
+        wrong.append("issues should be " + ("on" if takes else "off"))
+    for key, name in (("has_wiki", "wiki"), ("has_discussions", "Discussions"), ("has_projects", "Projects")):
+        if repo.info.get(key):
+            wrong.append(f"{name} should be off")
+    vuln = api(f"repos/{repo.name}/private-vulnerability-reporting") or {}
+    if not vuln.get("enabled"):
+        wrong.append("private vulnerability reporting should be on")
+    if not takes:
+        target = repos.get(repo.issues)
+        if target is None or target.issues != "here":
+            wrong.append(f"`{repo.issues}` doesn't take issues")
+        readme = raw(repo.name, "README.md", repo.branch) if "README.md" in repo.files else ""
+        if f"https://github.com/{repo.issues}/issues" not in readme:
+            wrong.append(f"its README should link `{repo.issues}`'s issues")
+            inst.link("README", blob(repo.name, repo.branch, "README.md"))
+    inst.verdict(not wrong, "Matches." if not wrong else "Mismatch: " + "; ".join(wrong) + ".")
+
+
 # ---------------------------------------------------------------- output
 
 def plural(n: int, word: str) -> str:
@@ -701,6 +741,8 @@ def main() -> int:
         check_pins(repo, entries_by_repo[repo.name], repos, report)
         check_runs(repo, report)
     check_releases(repos, entries_by_repo, report)
+    for repo in sorted(repos.values(), key=lambda r: r.name):
+        check_settings(repo, repos, report)
     reach = reachable_releases(repos)
     for repo in sorted(repos.values(), key=lambda r: r.name):
         check_latest(repo, reach, report)

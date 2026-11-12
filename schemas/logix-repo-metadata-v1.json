@@ -2,16 +2,29 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://www.openlogix.org/schemas/logix-repo-metadata-v1.json",
   "title": "Open Logix repo metadata",
-  "description": "What an Open Logix repo is, for the org's tools: .github/logix-repo-metadata.jsonc in each repo, changed only by pull request. repos-janitor reads it. The file is JSONC: comments say why.",
+  "description": "What an Open Logix repo is, for the org's tools (its type and where its issues go): .github/logix-repo-metadata.jsonc in each repo, changed only by pull request. repos-janitor reads it. The file is JSONC: comments say why.",
   "type": "object",
-  "required": ["$schema", "type"],
+  "required": [
+    "$schema",
+    "type",
+    "issues"
+  ],
   "properties": {
     "$schema": {
       "const": "https://www.openlogix.org/schemas/logix-repo-metadata-v1.json"
     },
     "type": {
       "description": "The repo type, which decides its release policy (Repo types, in the website repo's CLAUDE.md): installable (a product people install, from its release marked Latest; also when programs download it too), dependency (data or tools programs download, as remote configs name them) or no-releases (it's only read: no releases at all).",
-      "enum": ["installable", "dependency", "no-releases"]
+      "enum": [
+        "installable",
+        "dependency",
+        "no-releases"
+      ]
+    },
+    "issues": {
+      "description": "Where this repo's problems and ideas are reported (Contact and GitHub features, in the website repo's CLAUDE.md): here (the repo takes issues: only the products people use directly, Logix IDE and Logix Engine), or the repo that takes them for it, such as openlogix/logix-engine, which its README links.",
+      "type": "string",
+      "pattern": "^(here|openlogix/[A-Za-z0-9._-]+)$"
     }
   },
   "additionalProperties": false

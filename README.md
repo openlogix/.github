@@ -14,6 +14,8 @@ Shared GitHub Actions and org-wide files for the [Open Logix](https://www.openlo
 
 This is an internal repo. It makes nothing for users. It holds pieces that the workflows of several Open Logix repos use, so each fix is made once.
 
+**Problems or ideas?** Report them in [Logix Engine's issues](https://github.com/openlogix/logix-engine/issues/new/choose): this repo takes no issues. Security problems: report them privately, as [SECURITY.md](https://github.com/openlogix/.github/blob/main/SECURITY.md) says.
+
 ## Org page
 
 [profile/README.md](profile/README.md) is shown on [github.com/openlogix](https://github.com/openlogix). It lists the Open Logix repos.

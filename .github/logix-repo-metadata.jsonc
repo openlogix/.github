@@ -3,5 +3,7 @@
 {
   "$schema": "https://www.openlogix.org/schemas/logix-repo-metadata-v1.json",
   // Only read: shared actions, schemas and repos-janitor.
-  "type": "no-releases"
+  "type": "no-releases",
+  // This repo takes no issues: its README sends people to openlogix/logix-engine's.
+  "issues": "openlogix/logix-engine"
 }

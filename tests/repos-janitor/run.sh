@@ -20,7 +20,7 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "❌&nbsp;&nbsp; **15 failed, 36 passed** · 8 repos · 2026-11-14 03:00 UTC" \
+  "❌&nbsp;&nbsp; **18 failed, 40 passed** · 8 repos · 2026-11-14 03:00 UTC" \
   "### Failed" \
   "### Passed" \
   "### Verification results" \
@@ -57,7 +57,12 @@ for text in \
   "    - [Result] Not date-tagged: \`test-1-stable\`, \`test-1-p1\`." \
   "    - [Result] All date-tagged." \
   "- Schema copy should match its owner" \
-  "    - [Result] Differs."; do
+  "    - [Result] Differs." \
+  "- Repo settings should match" \
+  "    - [Result] Mismatch: wiki should be off." \
+  "    - [Result] Mismatch: private vulnerability reporting should be on." \
+  "    - [Result] Mismatch: its README should link \`openlogix/logix-ide\`'s issues." \
+  "    - [Fix] [settings](https://github.com/openlogix/logix-engine/settings)"; do
   grep -qF -- "$text" "$tmp/summary.md" || fail "the summary has no \"$text\""
 done
 # No warnings: every failure is an error.
