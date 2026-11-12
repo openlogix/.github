@@ -1,4 +1,27 @@
-# Open Logix
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://www.openlogix.org/brand/readme/openlogix-dark.svg">
+  <img alt="Open Logix" src="https://www.openlogix.org/brand/readme/openlogix-light.svg" height="96">
+</picture>
+
+<br>
+
+[![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](#license)
+
+<img src="https://www.openlogix.org/brand/readme/macos.svg" height="40" alt="macOS (Apple Silicon)" title="macOS (Apple Silicon)">
+
+[![engine-test](https://img.shields.io/github/actions/workflow/status/openlogix/logix-engine/test.yaml?branch=main&label=engine-test)](https://github.com/openlogix/logix-engine/actions/workflows/test.yaml)
+[![engine-build](https://img.shields.io/github/actions/workflow/status/openlogix/logix-engine/build-pre-release.yaml?branch=main&label=engine-build)](https://github.com/openlogix/logix-engine/actions/workflows/build-pre-release.yaml)
+[![engine-docs](https://img.shields.io/github/actions/workflow/status/openlogix/logix-engine/publish-docs.yaml?branch=main&label=engine-docs)](https://github.com/openlogix/logix-engine/actions/workflows/publish-docs.yaml)
+[![catalog-test](https://img.shields.io/github/actions/workflow/status/openlogix/logix-catalog/test.yaml?branch=main&label=catalog-test)](https://github.com/openlogix/logix-catalog/actions/workflows/test.yaml)
+[![catalog-build](https://img.shields.io/github/actions/workflow/status/openlogix/logix-catalog/build-pre-release.yaml?branch=main&label=catalog-build)](https://github.com/openlogix/logix-catalog/actions/workflows/build-pre-release.yaml)
+[![catalog-docs](https://img.shields.io/github/actions/workflow/status/openlogix/logix-catalog/publish-docs.yaml?branch=main&label=catalog-docs)](https://github.com/openlogix/logix-catalog/actions/workflows/publish-docs.yaml)
+[![core-build](https://img.shields.io/github/actions/workflow/status/openlogix/logix-core/build-pre-release.yaml?branch=main&label=core-build)](https://github.com/openlogix/logix-core/actions/workflows/build-pre-release.yaml)
+[![ide-test](https://img.shields.io/github/actions/workflow/status/openlogix/logix-ide/test.yaml?branch=main&label=ide-test)](https://github.com/openlogix/logix-ide/actions/workflows/test.yaml)
+[![ide-build](https://img.shields.io/github/actions/workflow/status/openlogix/logix-ide/build-pre-release.yaml?branch=main&label=ide-build)](https://github.com/openlogix/logix-ide/actions/workflows/build-pre-release.yaml)
+[![ide-docs](https://img.shields.io/github/actions/workflow/status/openlogix/logix-ide/publish-docs.yaml?branch=main&label=ide-docs)](https://github.com/openlogix/logix-ide/actions/workflows/publish-docs.yaml)
+[![site](https://img.shields.io/github/actions/workflow/status/openlogix/openlogix.github.io/pages%2Fpages-build-deployment?branch=main&label=site)](https://github.com/openlogix/openlogix.github.io/actions/workflows/pages/pages-build-deployment)
+[![actions-test](https://img.shields.io/github/actions/workflow/status/openlogix/.github/actions-test.yaml?branch=main&label=actions-test)](https://github.com/openlogix/.github/actions/workflows/actions-test.yaml)
+[![repos-janitor](https://img.shields.io/github/actions/workflow/status/openlogix/.github/repos-janitor.yaml?branch=main&label=repos-janitor)](https://github.com/openlogix/.github/actions/workflows/repos-janitor.yaml)
 
 Easy-to-use open source tools for FPGA design. All built on one engine. [www.openlogix.org](https://www.openlogix.org)
 
@@ -18,22 +41,6 @@ Easy-to-use open source tools for FPGA design. All built on one engine. [www.ope
 | [openlogix.github.io](https://github.com/openlogix/openlogix.github.io) | The Open Logix website, [www.openlogix.org](https://www.openlogix.org) | Live |
 | [.github](https://github.com/openlogix/.github) | Shared GitHub Actions for the other repos' workflows, and this page | Live |
 
-All Open Logix code is free and open source.
+## License
 
-## Badges
-
-Each repo's license, the platforms it runs on, and its workflows by their last run on `main`: green is passing, red is broken.
-
-| Repo | License | Platforms | Workflows |
-| --- | --- | --- | --- |
-| [logix-engine](https://github.com/openlogix/logix-engine) | [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](https://github.com/openlogix/logix-engine/blob/main/LICENSE-MIT) | <img src="https://www.openlogix.org/brand/readme/macos.svg" height="20" alt="macOS (Apple Silicon)" title="macOS (Apple Silicon)"> | [![engine-test](https://img.shields.io/github/actions/workflow/status/openlogix/logix-engine/test.yaml?branch=main&label=engine-test)](https://github.com/openlogix/logix-engine/actions/workflows/test.yaml) [![engine-build](https://img.shields.io/github/actions/workflow/status/openlogix/logix-engine/build-pre-release.yaml?branch=main&label=engine-build)](https://github.com/openlogix/logix-engine/actions/workflows/build-pre-release.yaml) [![engine-docs](https://img.shields.io/github/actions/workflow/status/openlogix/logix-engine/publish-docs.yaml?branch=main&label=engine-docs)](https://github.com/openlogix/logix-engine/actions/workflows/publish-docs.yaml) |
-| [logix-catalog](https://github.com/openlogix/logix-catalog) | [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](https://github.com/openlogix/logix-catalog/blob/main/LICENSE-MIT) |  | [![catalog-test](https://img.shields.io/github/actions/workflow/status/openlogix/logix-catalog/test.yaml?branch=main&label=catalog-test)](https://github.com/openlogix/logix-catalog/actions/workflows/test.yaml) [![catalog-build](https://img.shields.io/github/actions/workflow/status/openlogix/logix-catalog/build-pre-release.yaml?branch=main&label=catalog-build)](https://github.com/openlogix/logix-catalog/actions/workflows/build-pre-release.yaml) [![catalog-docs](https://img.shields.io/github/actions/workflow/status/openlogix/logix-catalog/publish-docs.yaml?branch=main&label=catalog-docs)](https://github.com/openlogix/logix-catalog/actions/workflows/publish-docs.yaml) |
-| [logix-core](https://github.com/openlogix/logix-core) | [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](https://github.com/openlogix/logix-core/blob/main/LICENSE-MIT) | <img src="https://www.openlogix.org/brand/readme/macos.svg" height="20" alt="macOS (Apple Silicon)" title="macOS (Apple Silicon)"> | [![core-build](https://img.shields.io/github/actions/workflow/status/openlogix/logix-core/build-pre-release.yaml?branch=main&label=core-build)](https://github.com/openlogix/logix-core/actions/workflows/build-pre-release.yaml) |
-| [logix-ide](https://github.com/openlogix/logix-ide) | [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](https://github.com/openlogix/logix-ide/blob/main/LICENSE-MIT) | <img src="https://www.openlogix.org/brand/readme/macos.svg" height="20" alt="macOS (Apple Silicon)" title="macOS (Apple Silicon)"> | [![ide-test](https://img.shields.io/github/actions/workflow/status/openlogix/logix-ide/test.yaml?branch=main&label=ide-test)](https://github.com/openlogix/logix-ide/actions/workflows/test.yaml) [![ide-build](https://img.shields.io/github/actions/workflow/status/openlogix/logix-ide/build-pre-release.yaml?branch=main&label=ide-build)](https://github.com/openlogix/logix-ide/actions/workflows/build-pre-release.yaml) [![ide-docs](https://img.shields.io/github/actions/workflow/status/openlogix/logix-ide/publish-docs.yaml?branch=main&label=ide-docs)](https://github.com/openlogix/logix-ide/actions/workflows/publish-docs.yaml) |
-| [logix-ai](https://github.com/openlogix/logix-ai) | [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](https://github.com/openlogix/logix-ai/blob/main/LICENSE-MIT) |  |  |
-| [logix-cli](https://github.com/openlogix/logix-cli) | [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](https://github.com/openlogix/logix-cli/blob/main/LICENSE-MIT) |  |  |
-| [logix-vscode](https://github.com/openlogix/logix-vscode) | [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](https://github.com/openlogix/logix-vscode/blob/main/LICENSE-MIT) |  |  |
-| [logix-studio](https://github.com/openlogix/logix-studio) | [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](https://github.com/openlogix/logix-studio/blob/main/LICENSE-MIT) |  |  |
-| [logix-remote](https://github.com/openlogix/logix-remote) | [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](https://github.com/openlogix/logix-remote/blob/main/LICENSE-MIT) |  |  |
-| [openlogix.github.io](https://github.com/openlogix/openlogix.github.io) | [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](https://github.com/openlogix/openlogix.github.io/blob/main/LICENSE-MIT) |  | [![site](https://img.shields.io/github/actions/workflow/status/openlogix/openlogix.github.io/pages%2Fpages-build-deployment?branch=main&label=site)](https://github.com/openlogix/openlogix.github.io/actions/workflows/pages/pages-build-deployment) |
-| [.github](https://github.com/openlogix/.github) | [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](https://github.com/openlogix/.github/blob/main/LICENSE-MIT) |  | [![actions-test](https://img.shields.io/github/actions/workflow/status/openlogix/.github/actions-test.yaml?branch=main&label=actions-test)](https://github.com/openlogix/.github/actions/workflows/actions-test.yaml) [![repos-janitor](https://img.shields.io/github/actions/workflow/status/openlogix/.github/repos-janitor.yaml?branch=main&label=repos-janitor)](https://github.com/openlogix/.github/actions/workflows/repos-janitor.yaml) |
+All Open Logix code is free and open source, under [MIT](https://github.com/openlogix/.github/blob/main/LICENSE-MIT) or [Apache 2.0](https://github.com/openlogix/.github/blob/main/LICENSE-APACHE), at your option.
