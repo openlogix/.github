@@ -64,6 +64,7 @@ from check_remote_config import strip_comments  # noqa: E402
 
 # Requirement types: id -> (title, severity).
 REQUIREMENTS = {
+    "release-tag-should-be-a-date": ("Release tag should be a date", "error"),
     "config-should-be-valid": ("Config should be valid", "error"),
     "release-should-be-valid": ("Release should be valid", "error"),
     "release-should-be-stable": ("Release should be stable", "error"),
@@ -231,18 +232,22 @@ class Repo:
 
     def latest(self) -> str | None:
         """The tag GitHub marks Latest; None without a stable release, or
-        when it isn't date-tagged (not an Open Logix release)."""
+        when it isn't date-tagged (release-tag-should-be-a-date reports it)."""
         if self._latest == "unread":
             r = api(f"repos/{self.name}/releases/latest")
             self._latest = r["tag_name"] if r and DATE_TAG.match(r["tag_name"]) else None
         return self._latest
 
-    def releases(self) -> list[dict]:
-        """Date-tagged releases only: others aren't Open Logix releases."""
+    def all_releases(self) -> list[dict]:
+        """Every published release (no drafts), whatever its tag."""
         if self._releases is None:
-            self._releases = [r for r in api(f"repos/{self.name}/releases?per_page=100") or []
-                              if not r["draft"] and DATE_TAG.match(r["tag_name"])]
+            self._releases = [r for r in api(f"repos/{self.name}/releases?per_page=100") or [] if not r["draft"]]
         return self._releases
+
+    def releases(self) -> list[dict]:
+        """The date-tagged releases, which the other checks look at; any other
+        tag fails release-tag-should-be-a-date."""
+        return [r for r in self.all_releases() if DATE_TAG.match(r["tag_name"])]
 
     def release(self, tag: str) -> dict | None:
         return next((r for r in self.releases() if r["tag_name"] == tag), None)
@@ -594,6 +599,23 @@ def check_runs(repo: Repo, report: Report) -> None:
         recent.verdict(age <= RUN_MAX_AGE, f"The last scheduled run was {age.days} day(s) ago ({when}).")
 
 
+def check_tags(repo: Repo, report: Report) -> None:
+    """release-tag-should-be-a-date: every release of a repo with releases."""
+    if not repo.all_releases():
+        return
+    page = releases_page(repo.name)
+    inst = report.require(repo.name, "release-tag-should-be-a-date", repo.name, f"[{repo.name} releases]({page})",
+                          f"{repo.name} releases")
+    inst.because("Every Open Logix release is tagged with its date, `yyyy-mm-dd` "
+                 "(the website repo's CLAUDE.md, Versions and tags); the other checks see only those.")
+    inst.link("the releases", page)
+    bad = [r["tag_name"] for r in repo.all_releases() if not DATE_TAG.match(r["tag_name"])]
+    for tag in bad:
+        inst.link(f"`{tag}`", release_page(repo.name, tag))
+    inst.verdict(not bad, f"All {plural(len(repo.all_releases()), 'release')} are date-tagged." if not bad
+                 else f"Not date-tagged: {', '.join(f'`{t}`' for t in bad)}. Delete them, or publish them again under their date.")
+
+
 def check_type(repo: Repo, report: Report) -> None:
     """repo-should-have-one-type and repo-should-have-no-releases."""
     page = f"https://github.com/{repo.name}"
@@ -611,7 +633,7 @@ def check_type(repo: Repo, report: Report) -> None:
     if repo.type == "no releases":
         nr = report.require(repo.name, "repo-should-have-no-releases", repo.name, f"[{repo.name}]({page})", repo.name)
         nr.because("Its type is \"no releases\": it's read, never downloaded.").link("the releases", releases_page(repo.name))
-        tags = [r["tag_name"] for r in repo.releases()]
+        tags = [r["tag_name"] for r in repo.all_releases()]
         nr.verdict(not tags, "It has no releases." if not tags
                    else f"It has releases: {', '.join(f'`{t}`' for t in tags)}. Delete them, or change the type.")
 
@@ -698,6 +720,7 @@ def main() -> int:
     entries_by_repo = {}
     for repo in sorted(repos.values(), key=lambda r: r.name):
         check_type(repo, report)
+        check_tags(repo, report)
         entries_by_repo[repo.name] = check_configs(repo, report)
         check_pins(repo, entries_by_repo[repo.name], repos, report, state, new_state)
         check_runs(repo, report)

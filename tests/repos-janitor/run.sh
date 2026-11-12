@@ -21,7 +21,7 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "❌&nbsp;&nbsp; **10 errors, 4 warnings, 33 passed** · 8 repos · 2026-11-14 03:00 UTC" \
+  "❌&nbsp;&nbsp; **12 errors, 4 warnings, 38 passed** · 8 repos · 2026-11-14 03:00 UTC" \
   "### Errors" \
   "### Warnings" \
   "### Passed" \
@@ -44,7 +44,10 @@ for text in \
   "- Latest should be used by a recommended install" \
   "- Dev pin should be recent" \
   "- Repo should have one type" \
-  "- Repo should have no releases"; do
+  "- Repo should have no releases" \
+  "- Release tag should be a date" \
+  "    - [Result] Not date-tagged: \`test-1-stable\`, \`test-1-p1\`. Delete them, or publish them again under their date." \
+  "    - [Result] All 3 releases are date-tagged."; do
   grep -qF -- "$text" "$tmp/summary.md" || fail "the summary has no \"$text\""
 done
 # The JSON results, as Apio's: by repo, then requirement type.

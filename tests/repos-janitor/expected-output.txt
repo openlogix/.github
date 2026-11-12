@@ -1,3 +1,5 @@
+::error title=Release tag should be a date (openlogix/.github)::openlogix/.github releases: Not date-tagged: test-1-stable, test-1-p1. Delete them, or publish them again under their date.
+::error title=Repo should have no releases (openlogix/.github)::openlogix/.github: It has releases: test-1-stable, test-1-p1. Delete them, or change the type.
 ::error title=Release should be valid (openlogix/logix-catalog)::2026-11-01: It has no BUILD-INFO.json.
 ::error title=Release should be valid (openlogix/logix-catalog)::2026-11-30: The release is missing.
 ::error title=Repo should have no releases (openlogix/logix-cli)::openlogix/logix-cli: It has releases: 2026-11-01. Delete them, or change the type.
@@ -12,4 +14,4 @@
 ::warning title=Release file should not change (openlogix/logix-engine)::2026-11-10 logix-engine-darwin-arm64-20261110.tgz: It was rebuilt under the same tag: its SHA-256 changed since the last run, so installed products download it again.
 ::warning title=Dev pin should be recent (openlogix/logix-ide)::001/dev.jsonc → logix-catalog 2026-11-01: It's 11 days older than the newest release, 2026-11-12.
 ::warning title=Daily build should be recent (openlogix/logix-ide)::build.yaml: The last scheduled run was 2 day(s) ago (2026-11-12 00:00 UTC).
-repos-janitor: 8 repos, 10 errors, 4 warnings, 33 passed.
+repos-janitor: 8 repos, 12 errors, 4 warnings, 38 passed.

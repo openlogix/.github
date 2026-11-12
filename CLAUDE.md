@@ -26,6 +26,7 @@ A workflow here that checks what no single repo's CI can see and reports problem
 
   | Requirement | Subject | Severity |
   | --- | --- | --- |
+  | `release-tag-should-be-a-date` | a repo's releases: every published release (not drafts) is tagged `yyyy-mm-dd`; the other checks see only those | error |
   | `config-should-be-valid` | a file of a version folder (`check-remote-config`'s problems by file) | error |
   | `release-should-be-valid` | a release named by a config, on a prod list, or Latest (`SHA256SUMS`, `BUILD-INFO.json`, the files `SHA256SUMS` lists) | error |
   | `release-should-be-stable` | a release on a prod list, or named by a `prod.jsonc` | error |
