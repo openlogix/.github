@@ -1,7 +1,9 @@
 ::error title=releases (openlogix/logix-catalog)::2026-11-01 has no BUILD-INFO.json (https://github.com/openlogix/logix-catalog/releases/tag/2026-11-01)
+::error title=repo type (openlogix/logix-cli)::2026-11-01 is a release, but the repo has none by its type: delete it, or change the type (https://github.com/openlogix/logix-cli/releases/tag/2026-11-01)
 ::error title=daily runs (openlogix/logix-engine)::test.yaml's last scheduled run: failure (https://github.com/openlogix/logix-engine/actions/runs/1)
 ::error title=releases (openlogix/logix-engine)::2026-11-10's SHA256SUMS lists logix-engine-linux-x86-64-20261110.tgz, which the release doesn't have (https://github.com/openlogix/logix-engine/releases/tag/2026-11-10)
 ::error title=remote configs (openlogix/logix-engine)::remote-config/logix-engine/config-001.jsonc: logix-catalog: no release 2026-11-30 in openlogix/logix-catalog (HTTP 404: Not Found) (https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/config-001.jsonc)
+::error title=repo type (openlogix/openlogix.github.io)::it has no type topic: add one of openlogix-installable, openlogix-dependency or openlogix-no-releases (https://github.com/openlogix/openlogix.github.io)
 ::error title=schema copies (openlogix/openlogix.github.io)::docs/schemas/logix-other-v1.json has no owner (schemas/logix-other-v1.json in logix-catalog, .github) (https://github.com/openlogix/openlogix.github.io/blob/main/docs/schemas/logix-other-v1.json)
 ::error title=schema copies (openlogix/openlogix.github.io)::docs/schemas/logix-remote-config-v1.json differs from openlogix/.github's schemas/logix-remote-config-v1.json: copy it again (https://github.com/openlogix/.github/blob/main/schemas/logix-remote-config-v1.json)
 ::warning title=latest release (openlogix/logix-catalog)::2026-11-05 is marked Latest, but the remote configs recommend 2026-11-01: mark it Latest, or repin (https://github.com/openlogix/logix-catalog/releases/tag/2026-11-05)
@@ -9,4 +11,4 @@
 ::warning title=expiring pre-releases (openlogix/logix-ide)::remote-config/logix-ide/config-001.jsonc: logix-engine 2026-11-10 is a pre-release deleted in about 1 day(s): repin it, or make the release stable (https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/config-001.jsonc)
 ::warning title=rebuilt releases (openlogix/logix-ide)::remote-config/logix-ide/config-001.jsonc: logix-engine 2026-11-10: logix-engine-darwin-arm64-20261110.tgz was rebuilt under the same tag (its SHA-256 changed), so installed products download it again (https://github.com/openlogix/logix-engine/releases/tag/2026-11-10)
 ::warning title=stale pins (openlogix/logix-ide)::remote-config/logix-ide/config-001.jsonc: logix-catalog 2026-11-01 is 11 days older than openlogix/logix-catalog's newest release, 2026-11-12 (https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/config-001.jsonc)
-repos-janitor: 5 repos, 7 passed, 5 warnings, 6 failures.
+repos-janitor: 6 repos, 13 passed, 5 warnings, 8 failures.

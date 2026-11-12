@@ -44,6 +44,11 @@ SCHEMA_OWNERS = ["logix-catalog", ".github"]
 CONFIG_WHY = "Every installed product on this config version reads it from `main`."
 CONFIG = re.compile(r"^remote-config/[^/]+/config-[0-9]{3}\.jsonc$")
 WORKFLOW = re.compile(r"^\.github/workflows/[^/]+\.ya?ml$")
+# Repo types (the website repo's CLAUDE.md, Repo types): one GitHub topic
+# per repo.
+TYPES = {"openlogix-installable": "installable", "openlogix-dependency": "dependency",
+         "openlogix-no-releases": "no releases"}
+TYPE_WHY = "The repo type (its topic) decides its release policy (the website repo's CLAUDE.md, Repo types)."
 DATE_TAG = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 
 sys.path.insert(0, str(ROOT / "actions" / "check-remote-config"))
@@ -139,6 +144,8 @@ class Repo:
         self.name = info["full_name"]
         self.short = info["name"]
         self.branch = info["default_branch"]
+        self.types = sorted(TYPES[t] for t in info.get("topics", []) if t in TYPES)
+        self.type = self.types[0] if len(self.types) == 1 else None
         tree = api(f"repos/{self.name}/git/trees/{self.branch}?recursive=1") or {}
         self.files = [t["path"] for t in tree.get("tree", []) if t["type"] == "blob"]
         self._releases = None
@@ -359,23 +366,57 @@ def md_links(links) -> str:
     return ", ".join(f"[{label}]({url})" for label, url in links)
 
 
+def check_type(repo: Repo, report: Report) -> None:
+    """Check 9: the repo has exactly one type topic; a "no releases" repo
+    has no releases."""
+    topics = ("`openlogix-installable`, `openlogix-dependency` or `openlogix-no-releases`")
+    settings = [("the repo, to set its topic", f"https://github.com/{repo.name}")]
+    if not repo.types:
+        report.add("fail", repo.name, "repo type", f"it has no type topic: add one of {topics}", settings, why=TYPE_WHY)
+        return
+    if len(repo.types) > 1:
+        report.add("fail", repo.name, "repo type", f"it has several types ({', '.join(repo.types)}): keep one", settings, why=TYPE_WHY)
+        return
+    topic = next(t for t, name in TYPES.items() if name == repo.type)
+    report.add("pass", repo.name, "repo type", f"{repo.type} (topic `{topic}`)", settings, why=TYPE_WHY)
+    if repo.type == "no releases":
+        why = "Its type is \"no releases\": it's read, never downloaded."
+        for r in repo.releases():
+            report.add("fail", repo.name, "repo type", f"`{r['tag_name']}` is a release, but the repo has none by its type: delete it, or change the type",
+                       [("the release", release_page(repo.name, r["tag_name"]))], why=why)
+        if not repo.releases():
+            report.add("pass", repo.name, "repo type", "it has no releases, as its type says", [], why=why)
+
+
 def check_latest(repo: Repo, report: Report, named: dict[str, list[str]]) -> None:
-    """Check 8: the release marked Latest is the one recommended. When the
-    remote configs name stable releases of this repo, Latest should be the
-    newest of them. A repo with releases but no Latest (only pre-releases)
-    passes for now: requiring stable releases is deferred."""
-    if not repo.releases():
+    """Check 8: the release marked Latest is the one recommended, by the
+    repo's type. When the remote configs name stable releases of this repo,
+    Latest should be the newest of them. An installable repo with no Latest
+    (only pre-releases) passes for now: requiring stable releases is
+    deferred. A dependency needs no Latest; one that no config's stable
+    release accounts for is a warning."""
+    if not repo.releases() or repo.type not in ("installable", "dependency"):
         return
     latest = repo.latest()
     stable_named = sorted(r["tag_name"] for r in repo.releases()
                           if not r["prerelease"] and f"{repo.name}/{r['tag_name']}" in named)
     why = "Tutorials and install guides send people to the release marked Latest."
+    releases_link = [("the releases", f"https://github.com/{repo.name}/releases")]
     if latest is None:
-        report.add("pass", repo.name, "latest release",
-                   "no release is marked Latest yet: every release is a pre-release (required once stable releases are)",
-                   [("the releases", f"https://github.com/{repo.name}/releases")], why=why)
+        if repo.type == "installable":
+            report.add("pass", repo.name, "latest release",
+                       "no release is marked Latest yet: every release is a pre-release (required once stable releases are)",
+                       releases_link, why=f"{why} The repo is installable.")
+        else:
+            report.add("pass", repo.name, "latest release", "no release is marked Latest, as a dependency needs none",
+                       releases_link, why="Programs download a dependency as remote configs name it, not people.")
         return
     links = [("the release", release_page(repo.name, latest))]
+    if repo.type == "dependency" and not stable_named:
+        report.add("warn", repo.name, "latest release",
+                   f"`{latest}` is marked Latest, but no remote config names a stable release of this dependency: it sends people to a release no product uses",
+                   links, why="Programs download a dependency as remote configs name it, not people.")
+        return
     if stable_named and stable_named[-1] != latest:
         users = named[f"{repo.name}/{stable_named[-1]}"]
         report.add("warn", repo.name, "latest release",
@@ -433,6 +474,7 @@ def main() -> int:
         check_pins(repo, entries, repos, report, PLATFORMS, state, new_state)
         check_runs(repo, report)
     for repo in sorted(repos.values(), key=lambda r: r.name):
+        check_type(repo, report)
         check_releases(repo, report, named)
         check_latest(repo, report, named)
     check_schemas(repos, report)

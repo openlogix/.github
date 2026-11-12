@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A stand-in for the gh CLI in the repos-janitor tests: answers the calls
 janitor.py and check_remote_config.py make from the fixture org in
-$FAKE_GH_ORG: repos/<owner>/<name>/ with files/ (the default branch's
+$FAKE_GH_ORG: repos/<owner>/<name>/ with topics (its topics), files/ (the default branch's
 files), releases.json, sums/<tag> (SHA256SUMS) and runs/<workflow>.json."""
 import json, os, sys
 from pathlib import Path
@@ -44,7 +44,8 @@ if args[:1] == ["api"]:
     path, _, query = path.partition("?")
     parts = path.split("/")
     if path == "orgs/openlogix/repos":
-        out([{"full_name": f"openlogix/{d.name}", "name": d.name, "default_branch": "main", "archived": False}
+        out([{"full_name": f"openlogix/{d.name}", "name": d.name, "default_branch": "main", "archived": False,
+              "topics": (d / "topics").read_text().split() if (d / "topics").is_file() else []}
              for d in sorted((org / "repos" / "openlogix").iterdir())])
     full = "/".join(parts[1:3])
     rest = parts[3:]
