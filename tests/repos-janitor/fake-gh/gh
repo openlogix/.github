@@ -58,6 +58,9 @@ if args[:1] == ["api"]:
         out(f.read_text()) if f.is_file() else not_found()
     if rest == ["releases"]:
         out(releases(full))
+    if rest == ["releases", "latest"]:
+        r = next((r for r in releases(full) if r.get("latest")), None)
+        out(r) if r else not_found()
     if rest[:2] == ["releases", "tags"]:
         r = next((r for r in releases(full) if r["tag_name"] == rest[2]), None)
         out(r) if r else not_found()

@@ -22,15 +22,17 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "6 failures, 4 warnings, 10 passed." \
+  "6 failures, 5 warnings, 7 passed." \
   "## Failures (6)" \
-  "## Warnings (4)" \
-  "## Passed (10)" \
+  "## Warnings (5)" \
+  "## Passed (7)" \
   "| Named by \`openlogix/logix-ide\`'s \`remote-config/logix-ide/config-001.jsonc\`. |" \
   "### \`openlogix/logix-ide\`" \
   "[the release, to make it stable](https://github.com/openlogix/logix-engine/releases/tag/2026-11-10)" \
   "[the config, to repin](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/config-001.jsonc)" \
   "[the run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
+  "| latest release | \`2026-11-05\` is marked Latest, but the remote configs recommend \`2026-11-01\`" \
+  "| latest release | no release is marked Latest yet" \
   "| remote configs | \`remote-config/logix-ide/config-001.jsonc\` is valid" \
   "| schema copies | \`docs/schemas/logix-board-v1.json\` equals \`openlogix/logix-catalog\`'s \`schemas/logix-board-v1.json\`"; do
   grep -qF -- "$text" "$tmp/summary.md" || fail "the summary has no \"$text\""

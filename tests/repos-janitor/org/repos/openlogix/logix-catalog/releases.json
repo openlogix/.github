@@ -16,6 +16,23 @@
   ]
  },
  {
+  "tag_name": "2026-11-05",
+  "prerelease": false,
+  "draft": false,
+  "latest": true,
+  "assets": [
+   {
+    "name": "logix-catalog-20261105.tgz"
+   },
+   {
+    "name": "SHA256SUMS"
+   },
+   {
+    "name": "BUILD-INFO.json"
+   }
+  ]
+ },
+ {
   "tag_name": "2026-11-01",
   "prerelease": false,
   "draft": false,

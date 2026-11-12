@@ -143,9 +143,21 @@ class Repo:
         self.files = [t["path"] for t in tree.get("tree", []) if t["type"] == "blob"]
         self._releases = None
 
+    def latest(self) -> str | None:
+        """The tag of the release GitHub marks Latest; None when there's no
+        stable release (GitHub has no Latest then)."""
+        if not hasattr(self, "_latest"):
+            r = api(f"repos/{self.name}/releases/latest")
+            self._latest = r["tag_name"] if r else None
+        return self._latest
+
     def releases(self) -> list[dict]:
         if self._releases is None:
-            self._releases = [r for r in api(f"repos/{self.name}/releases?per_page=100") or [] if not r["draft"]]
+            # Date-tagged releases only: others, such as the test releases
+            # actions-test makes in .github and deletes, aren't Open Logix
+            # releases.
+            self._releases = [r for r in api(f"repos/{self.name}/releases?per_page=100") or []
+                              if not r["draft"] and DATE_TAG.match(r["tag_name"])]
         return self._releases
 
 
@@ -309,16 +321,25 @@ def check_runs(repo: Repo, report: Report) -> None:
 
 
 def check_releases(repo: Repo, report: Report, named: dict[str, list[str]]) -> None:
-    """Check 7: every release has SHA256SUMS and BUILD-INFO.json, and has
-    every file its SHA256SUMS lists. Only date-tagged releases: others,
-    such as the test releases actions-test makes here and deletes, aren't
-    Open Logix releases."""
-    for r in (r for r in repo.releases() if DATE_TAG.match(r["tag_name"])):
+    """Check 7: every release something refers to has SHA256SUMS and
+    BUILD-INFO.json, and has every file its SHA256SUMS lists. As Apio's
+    janitor, only releases people or products are pointed to: the ones a
+    remote config on main names, and the repo's Latest (the one tutorials
+    and install guides send people to). Other daily pre-releases are
+    disposable. Later, also the releases on public listings (stores)."""
+    latest = repo.latest()
+    for r in repo.releases():
         tag = r["tag_name"]
-        links = [("the release", release_page(repo.name, tag))]
         users = named.get(f"{repo.name}/{tag}", [])
-        why = (f"Named by {', '.join(users)}." if users
-               else "Published on the repo's releases page, where people download it.")
+        if not users and tag != latest:
+            continue
+        links = [("the release", release_page(repo.name, tag))]
+        reasons = []
+        if users:
+            reasons.append(f"Named by {', '.join(users)}.")
+        if tag == latest:
+            reasons.append("Marked Latest: the release people are told to download.")
+        why = " ".join(reasons)
         assets = {a["name"] for a in r["assets"]}
         problems = 0
         missing = [f for f in ("SHA256SUMS", "BUILD-INFO.json") if f not in assets]
@@ -336,6 +357,34 @@ def check_releases(repo: Repo, report: Report, named: dict[str, list[str]]) -> N
 
 def md_links(links) -> str:
     return ", ".join(f"[{label}]({url})" for label, url in links)
+
+
+def check_latest(repo: Repo, report: Report, named: dict[str, list[str]]) -> None:
+    """Check 8: the release marked Latest is the one recommended. When the
+    remote configs name stable releases of this repo, Latest should be the
+    newest of them. A repo with releases but no Latest (only pre-releases)
+    passes for now: requiring stable releases is deferred."""
+    if not repo.releases():
+        return
+    latest = repo.latest()
+    stable_named = sorted(r["tag_name"] for r in repo.releases()
+                          if not r["prerelease"] and f"{repo.name}/{r['tag_name']}" in named)
+    why = "Tutorials and install guides send people to the release marked Latest."
+    if latest is None:
+        report.add("pass", repo.name, "latest release",
+                   "no release is marked Latest yet: every release is a pre-release (required once stable releases are)",
+                   [("the releases", f"https://github.com/{repo.name}/releases")], why=why)
+        return
+    links = [("the release", release_page(repo.name, latest))]
+    if stable_named and stable_named[-1] != latest:
+        users = named[f"{repo.name}/{stable_named[-1]}"]
+        report.add("warn", repo.name, "latest release",
+                   f"`{latest}` is marked Latest, but the remote configs recommend `{stable_named[-1]}`: mark it Latest, or repin",
+                   links + [("the recommended release", release_page(repo.name, stable_named[-1]))],
+                   why=f"{why} Named by {', '.join(users)}.")
+    else:
+        report.add("pass", repo.name, "latest release", f"`{latest}` is marked Latest"
+                   + (", the newest stable release the remote configs name" if stable_named else ""), links, why=why)
 
 
 def write_summary(report: Report, checked: int) -> None:
@@ -385,6 +434,7 @@ def main() -> int:
         check_runs(repo, report)
     for repo in sorted(repos.values(), key=lambda r: r.name):
         check_releases(repo, report, named)
+        check_latest(repo, report, named)
     check_schemas(repos, report)
 
     state_file.write_text(json.dumps(new_state, indent=2, sort_keys=True) + "\n")
