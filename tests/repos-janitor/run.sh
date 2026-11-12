@@ -43,6 +43,7 @@ for text in \
   "    - [Result] It's older than prod's \`2026-11-05\`: probably left over after a promotion. Delete \`001/dev.jsonc\` (dev then uses prod's), or repin it." \
   "- Daily build should be recent" \
   "- Repo should have one type" \
+  "    - [Result] Its type is \"installable\": it has the topic \`openlogix-installable\`." \
   "- Repo should have no releases" \
   "- Release tag should be a date" \
   "    - [Result] Not date-tagged: \`test-1-stable\`, \`test-1-p1\`. Delete them, or publish them again under their date." \

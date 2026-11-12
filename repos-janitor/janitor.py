@@ -52,6 +52,8 @@ WORKFLOW = re.compile(r"^\.github/workflows/[^/]+\.ya?ml$")
 # per repo.
 TYPES = {"openlogix-installable": "installable", "openlogix-dependency": "dependency",
          "openlogix-no-releases": "no releases"}
+# Where the release model's rules are (Remote updates, Repo types).
+POLICY_URL = "https://github.com/openlogix/openlogix.github.io/blob/main/CLAUDE.md"
 DATE_TAG = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 
 sys.path.insert(0, str(ROOT / "actions" / "check-remote-config"))
@@ -593,8 +595,11 @@ def check_type(repo: Repo, report: Report) -> None:
     """repo-should-have-one-type and repo-should-have-no-releases."""
     page = f"https://github.com/{repo.name}"
     inst = report.require(repo.name, "repo-should-have-one-type", repo.name, f"[{repo.name}]({page})", repo.name)
-    inst.because("The repo type (its topic) decides its release policy (the website repo's CLAUDE.md, Repo types).")
-    inst.link("the repo, to set its topic", page)
+    inst.because("Each Open Logix repo declares its type with one GitHub topic, shown under About on its GitHub page: "
+                 "`openlogix-installable` (people install it), `openlogix-dependency` (programs download it) or "
+                 "`openlogix-no-releases` (it's only read). The type decides its release policy "
+                 f"([Repo types]({POLICY_URL})).")
+    inst.link("the repo's page (topics under About)", page)
     if not repo.topics:
         inst.verdict(False, "It has no type topic: add `openlogix-installable`, `openlogix-dependency` "
                             "or `openlogix-no-releases`.")
@@ -602,10 +607,11 @@ def check_type(repo: Repo, report: Report) -> None:
     if len(repo.topics) > 1:
         inst.verdict(False, f"It has several: {', '.join(f'`{t}`' for t in repo.topics)}. Keep one.")
         return
-    inst.verdict(True, f"It's {repo.type} (topic `{repo.topics[0]}`).")
+    inst.verdict(True, f"Its type is \"{repo.type}\": it has the topic `{repo.topics[0]}`.")
     if repo.type == "no releases":
         nr = report.require(repo.name, "repo-should-have-no-releases", repo.name, f"[{repo.name}]({page})", repo.name)
-        nr.because("Its type is \"no releases\": it's read, never downloaded.").link("the releases", releases_page(repo.name))
+        nr.because(f"Its type is \"no releases\" (topic `openlogix-no-releases`): it's only read, never downloaded "
+                   f"([Repo types]({POLICY_URL})).").link("the releases", releases_page(repo.name))
         tags = [r["tag_name"] for r in repo.all_releases()]
         nr.verdict(not tags, "It has no releases." if not tags
                    else f"It has releases: {', '.join(f'`{t}`' for t in tags)}. Delete them, or change the type.")
