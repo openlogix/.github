@@ -22,14 +22,16 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "10 passed, 4 warnings, 6 failures." \
-  "### Problems" \
+  "6 failures, 4 warnings, 10 passed." \
+  "## Failures (6)" \
+  "## Warnings (4)" \
+  "## Passed (10)" \
+  "### \`openlogix/logix-ide\`" \
   "[the release, to make it stable](https://github.com/openlogix/logix-engine/releases/tag/2026-11-10)" \
   "[the config, to repin](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/config-001.jsonc)" \
   "[the run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
-  "### Everything checked" \
-  "| ✅ pass | remote-config/logix-ide/config-001.jsonc is valid" \
-  "| ✅ pass | docs/schemas/logix-board-v1.json equals openlogix/logix-catalog's schemas/logix-board-v1.json"; do
+  "| remote configs | \`remote-config/logix-ide/config-001.jsonc\` is valid" \
+  "| schema copies | \`docs/schemas/logix-board-v1.json\` equals \`openlogix/logix-catalog\`'s \`schemas/logix-board-v1.json\`"; do
   grep -qF -- "$text" "$tmp/summary.md" || fail "the summary has no \"$text\""
 done
 # The state now holds this run's SHA-256s.
