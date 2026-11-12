@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""A stand-in for the gh CLI in the publish-pre-release tests, so they make
+no real releases: the releases live in the JSON file $FAKE_GH_STATE (a list
+of {tagName, name, isPrerelease, isDraft, publishedAt, body, target,
+assets: [{name, sha256}]}). Answers the release calls the actions make
+(view, create, delete, list, with --json and --jq through the real jq), and
+passes `gh api` calls to the repos-janitor fake (its fixture org, for the
+cleanup's referenced tags)."""
+import hashlib, json, os, subprocess, sys
+from pathlib import Path
+
+state_file = Path(os.environ["FAKE_GH_STATE"])
+args = sys.argv[1:]
+
+
+def load():
+    return json.loads(state_file.read_text()) if state_file.is_file() else []
+
+
+def save(releases):
+    state_file.write_text(json.dumps(releases, indent=1) + "\n")
+
+
+def opt(name, default=None):
+    """The value of --name VALUE or --name=VALUE."""
+    for i, a in enumerate(args):
+        if a == name and i + 1 < len(args):
+            return args[i + 1]
+        if a.startswith(name + "="):
+            return a.split("=", 1)[1]
+    return default
+
+
+def output(value):
+    fields = opt("--json")
+    if fields:
+        keys = fields.split(",")
+        value = [{k: r.get(k) for k in keys} for r in value] if isinstance(value, list) else {k: value.get(k) for k in keys}
+    text = json.dumps(value)
+    jq = opt("--jq")
+    if jq:
+        text = subprocess.run(["jq", "-r", jq], input=text, capture_output=True, text=True, check=True).stdout
+        print(text, end="")
+    else:
+        print(text)
+    sys.exit(0)
+
+
+if args[:1] == ["api"]:
+    os.execv(str(Path(__file__).resolve().parents[2] / "repos-janitor" / "fake-gh" / "gh"), [sys.argv[0], *args])
+
+if args[:1] != ["release"]:
+    sys.exit(f"fake gh: unexpected call: {' '.join(args)}")
+
+releases = load()
+verb = args[1]
+if verb == "view":
+    r = next((r for r in releases if r["tagName"] == args[2]), None)
+    if r is None:
+        print("release not found", file=sys.stderr)
+        sys.exit(1)
+    output(r)
+if verb == "list":
+    output(sorted(releases, key=lambda r: r["publishedAt"], reverse=True))
+if verb == "delete":
+    if not any(r["tagName"] == args[2] for r in releases):
+        sys.exit("release not found")
+    save([r for r in releases if r["tagName"] != args[2]])
+    sys.exit(0)
+if verb == "create":
+    tag = args[2]
+    if any(r["tagName"] == tag for r in releases):
+        sys.exit(f"a release with the tag {tag} already exists")
+    # Each create comes after every earlier one, deleted or not.
+    seq_file = state_file.with_suffix(".seq")
+    seq = (int(seq_file.read_text()) if seq_file.is_file() else 0) + 1
+    seq_file.write_text(str(seq))
+    files, i = [], 3
+    while i < len(args) and not args[i].startswith("--"):
+        files.append(args[i])
+        i += 1
+    notes = opt("--notes")
+    if opt("--notes-file"):
+        notes = Path(opt("--notes-file")).read_text()
+    releases.append({
+        "tagName": tag, "name": opt("--title", tag), "body": notes or "",
+        "isPrerelease": "--prerelease" in args, "isDraft": "--draft" in args,
+        "publishedAt": f"2026-01-01T00:{seq // 60:02d}:{seq % 60:02d}Z", "seq": seq, "target": opt("--target", "main"),
+        "assets": [{"name": Path(f).name, "sha256": hashlib.sha256(Path(f).read_bytes()).hexdigest()} for f in files],
+    })
+    save(releases)
+    sys.exit(0)
+sys.exit(f"fake gh: unexpected call: {' '.join(args)}")

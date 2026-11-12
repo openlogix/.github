@@ -231,16 +231,14 @@ class Repo:
 
     def latest(self) -> str | None:
         """The tag GitHub marks Latest; None without a stable release, or
-        when it isn't date-tagged (such as a test release actions-test makes
-        in .github and deletes: not an Open Logix release)."""
+        when it isn't date-tagged (not an Open Logix release)."""
         if self._latest == "unread":
             r = api(f"repos/{self.name}/releases/latest")
             self._latest = r["tag_name"] if r and DATE_TAG.match(r["tag_name"]) else None
         return self._latest
 
     def releases(self) -> list[dict]:
-        """Date-tagged releases only: others, such as the test releases
-        actions-test makes in .github and deletes, aren't Open Logix releases."""
+        """Date-tagged releases only: others aren't Open Logix releases."""
         if self._releases is None:
             self._releases = [r for r in api(f"repos/{self.name}/releases?per_page=100") or []
                               if not r["draft"] and DATE_TAG.match(r["tag_name"])]

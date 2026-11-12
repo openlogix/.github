@@ -2,8 +2,8 @@
 # the result with what's expected. Expected failures use continue-on-error
 # plus the assert-step-failed action.
 #
-# This repo has no releases of its own, so test-publish-pre-release tests
-# the release action with test releases it creates and deletes.
+# This repo has no releases (its type is "no releases"), and the tests make
+# none: test-publish-pre-release uses a fake gh that keeps releases in a file.
 
 name: actions-test
 
@@ -241,47 +241,36 @@ jobs:
           echo "Scan outcome correct: $ACTUAL_OUTCOME (expected $EXPECTED_OUTCOME)."
 
   # -- publish-pre-release: the release text, the files, replacing a
-  # -- same-tag pre-release, protecting a stable one, and the cleanup.
+  # -- same-tag pre-release, protecting a stable one, and the cleanup. With a
+  # -- fake gh (tests/publish-pre-release/fake-gh) that keeps the releases in
+  # -- a JSON file, so the tests make no real releases: this repo has none
+  # -- (its type is "no releases"). The product repos' daily builds run the
+  # -- action against GitHub every day, and repos-janitor checks the result.
   test-publish-pre-release:
     runs-on: ubuntu-latest
-    # Skipped for pull requests from forks, whose token can't change releases.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    permissions:
-      contents: write
-    # One run at a time across all branches, since the cleanup acts on all
-    # of this repo's pre-releases.
-    concurrency:
-      group: test-release-actions
-      cancel-in-progress: false
-    timeout-minutes: 15
+    timeout-minutes: 10
     env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-      # All test releases start with "test-". Unique per run.
-      TAG: test-${{ github.run_id }}-${{ github.run_attempt }}
+      FAKE_GH_STATE: ${{ github.workspace }}/_fake-releases.json
+      # The cleanup's referenced tags: a fixture org where logix-ide's
+      # dev.jsonc names this repo's test release p1.
+      FAKE_GH_ORG: ${{ github.workspace }}/tests/publish-pre-release/org
+      GH_TOKEN: unused
 
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v7
 
-      - name: Delete test releases left by earlier runs
-        run: |
-          gh release list --limit 1000 --json tagName \
-            --jq '.[].tagName | select(startswith("test-"))' |
-          while read -r tag; do
-            echo "Deleting $tag"
-            gh release delete "$tag" --yes
-            gh api -X DELETE "repos/$GH_REPO/git/refs/tags/$tag" 2>/dev/null || true
-          done
+      - name: Use the fake gh in the next steps
+        run: echo "$GITHUB_WORKSPACE/tests/publish-pre-release/fake-gh" >> "$GITHUB_PATH"
 
-      - name: Make the files of release A
+      - name: Make the files of release a
         run: |
-          jq -n --arg t "$TAG-a" --arg c "$GITHUB_SHA" \
-            '{"package-name": "test", "description": "Test.", "release-tag": $t, "repo-commit": $c}' > BUILD-INFO.json
+          jq -n --arg c "$GITHUB_SHA" \
+            '{"package-name": "test", "description": "Test.", "release-tag": "a", "repo-commit": $c}' > BUILD-INFO.json
           echo "Asset one" > asset.txt
           echo "Our own content, first." > content.md
 
-      - name: Publish release A
+      - name: Publish release a
         uses: ./actions/publish-pre-release
         with:
           title: "Test: A test release."
@@ -291,12 +280,14 @@ jobs:
           about-bullets: A repo-specific bullet.
           files: asset.txt
 
-      - name: Check release A
+      - name: Check release a
         run: |
           set -euo pipefail
-          gh release view "$TAG-a" --json isPrerelease,name,body,assets > release.json
+          gh release view a --json isPrerelease,name,body,assets,target > release.json
           jq -e '.isPrerelease == true' release.json
           jq -e '[.assets[].name] | sort == ["BUILD-INFO.json", "SHA256SUMS", "asset.txt"]' release.json
+          # The tag names the commit that was built.
+          jq -e --arg c "$GITHUB_SHA" '.target == $c' release.json
           jq -r .body release.json > body.md
           cat body.md
           # The sections, in order.
@@ -308,30 +299,28 @@ jobs:
           grep -q "The $PRERELEASE_KEEP newest are kept, and older ones while an Open Logix remote config names them" body.md
           grep -q -- "- A repo-specific bullet." body.md
           grep -q "$(sha256sum asset.txt | cut -c1-64)  asset.txt" body.md
-          # The tag names the commit that was built.
-          [ "$(git ls-remote --tags origin "refs/tags/$TAG-a" | cut -f1)" = "$GITHUB_SHA" ]
 
       - name: Change the content
         run: echo "Our own content, second." > content.md
 
-      - name: Publish release A again, from scratch
+      - name: Publish release a again, from scratch
         uses: ./actions/publish-pre-release
         with:
           title: "Test: A test release."
           content-file: content.md
           files: asset.txt
 
-      - name: Check release A was replaced
+      - name: Check release a was replaced
         run: |
-          gh release view "$TAG-a" --json body --jq .body > body.md
+          gh release view a --json body --jq .body > body.md
           grep -q "Our own content, second." body.md
           ! grep -q "Our own content, first." body.md
-          [ "$(gh release list --limit 1000 --json tagName --jq "[.[] | select(.tagName == \"$TAG-a\")] | length")" = 1 ]
+          [ "$(gh release list --json tagName --jq '[.[] | select(.tagName == "a")] | length')" = 1 ]
 
-      - name: Make a stable release with tag S
+      - name: Make a stable release, stable
         run: |
-          gh release create "$TAG-stable" --title "$TAG-stable" --notes "Test" --latest=false
-          jq --arg t "$TAG-stable" '."release-tag" = $t' BUILD-INFO.json > b.json && mv b.json BUILD-INFO.json
+          gh release create stable --title stable --notes "Test" --latest=false
+          jq '."release-tag" = "stable"' BUILD-INFO.json > b.json && mv b.json BUILD-INFO.json
 
       - name: Publish over the stable release
         id: over-stable
@@ -348,21 +337,20 @@ jobs:
           error-message: "Publishing over a stable release did not fail as expected"
 
       - name: Check the stable release is still stable
-        run: gh release view "$TAG-stable" --json isPrerelease --jq '.isPrerelease == false' | grep -q true
+        run: gh release view stable --json isPrerelease --jq '.isPrerelease == false' | grep -q true
 
       # The cleanup keeps the newest pre-releases by the policy (this test
-      # assumes 5) and leaves stable releases and drafts.
+      # assumes 5), any a remote config names (p1, in the fixture org), and
+      # leaves stable releases and drafts.
       - name: Make 6 more pre-releases and a draft
         run: |
           for i in 1 2 3 4 5 6; do
-            sleep 2
-            gh release create "$TAG-p$i" --title "$TAG-p$i" --notes "Test" --prerelease
+            gh release create "p$i" --title "p$i" --notes "Test" --prerelease
           done
-          gh release create "$TAG-draft" --title "$TAG-draft" --notes "Test" --prerelease --draft
-          sleep 2
-          jq --arg t "$TAG-b" '."release-tag" = $t' BUILD-INFO.json > b.json && mv b.json BUILD-INFO.json
+          gh release create draft --title draft --notes "Test" --prerelease --draft
+          jq '."release-tag" = "b"' BUILD-INFO.json > b.json && mv b.json BUILD-INFO.json
 
-      - name: Publish release B, the newest
+      - name: Publish release b, the newest
         uses: ./actions/publish-pre-release
         with:
           title: "Test: A test release."
@@ -370,26 +358,8 @@ jobs:
 
       - name: Check what the cleanup kept
         run: |
-          gh release list --limit 1000 --json tagName \
-            --jq '[.[].tagName | select(startswith(env.TAG))] | sort | .[]' > actual.txt
-          printf '%s\n' "$TAG-b" "$TAG-draft" "$TAG-p3" "$TAG-p4" "$TAG-p5" "$TAG-p6" "$TAG-stable" | sort > expected.txt
+          gh release list --json tagName --jq '[.[].tagName] | sort | .[]' > actual.txt
+          printf '%s\n' b draft p1 p3 p4 p5 p6 stable | sort > expected.txt
           echo "Expected:"; cat expected.txt
           echo "Actual:"; cat actual.txt
           diff expected.txt actual.txt
-          for t in a p1 p2; do
-            if [ -n "$(git ls-remote --tags origin "refs/tags/$TAG-$t")" ]; then
-              echo "Error: tag $TAG-$t still exists" >&2
-              exit 1
-            fi
-          done
-
-      - name: Delete this run's test releases
-        if: always()
-        run: |
-          gh release list --limit 1000 --json tagName \
-            --jq '.[].tagName | select(startswith(env.TAG))' |
-          while read -r tag; do
-            echo "Deleting $tag"
-            gh release delete "$tag" --yes
-            gh api -X DELETE "repos/$GH_REPO/git/refs/tags/$tag" 2>/dev/null || true
-          done

@@ -4,7 +4,7 @@ Guidance for Claude working in this repo, `openlogix/.github`. It is GitHub's sp
 
 ## What's here
 
-**Repo type: no releases** (topic `openlogix-no-releases`; the website repo's `CLAUDE.md`, Repo types, owns the policy). Its action tests make test releases here and delete them; they aren't date-tagged, so they don't count.
+**Repo type: no releases** (topic `openlogix-no-releases`; the website repo's `CLAUDE.md`, Repo types, owns the policy). Its tests make no releases (the release tests use a fake `gh`), so it has none.
 
 - `actions/<name>/action.yaml`: composite GitHub Actions shared by the Open Logix repos' CI and release workflows. [README.md](README.md) lists them.
 - `.github/workflows/actions-test.yaml`: tests the actions.
@@ -69,7 +69,7 @@ Action details:
 
 `actions-test.yaml` runs on every push and pull request, manually, and daily at 00:00 UTC. One job per action runs it and compares with expected output. Expected failures (a platform mismatch, an EICAR test file in the virus scan, publishing over a stable release) use `continue-on-error` plus `assert-step-failed`.
 
-This repo has no releases of its own, so `test-publish-pre-release` tests the release action on test releases: the text's structure, the files, a same-tag replacement, stable-release protection and the cleanup. It works only on releases whose tags start with `test-`, runs one at a time, deletes its releases at the end, and deletes leftovers from earlier runs at the start. Add or update a test with every action change.
+`test-publish-pre-release` tests the release action without making real releases (the user's decision, 2026-11-12: this repo's type is "no releases"): `tests/publish-pre-release/fake-gh/gh`, a stateful stand-in for `gh` that keeps the releases in a JSON file (`$FAKE_GH_STATE`; `release view`, `create`, `delete` and `list`, with `--json` and `--jq` through the real `jq`; `gh api` goes to the `repos-janitor` fake, on `tests/publish-pre-release/org`, where logix-ide's `dev.jsonc` names the test release `p1`). It checks the text's structure, the files, the target commit, a same-tag replacement, stable-release protection and the cleanup (the newest 5 kept, plus `p1`, which a config names; stable releases and drafts left). The real `gh` calls are exercised every day by the product repos' builds, and `repos-janitor` checks their releases. Add or update a test with every action change.
 
 ## Versions
 
