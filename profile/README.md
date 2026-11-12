@@ -29,17 +29,17 @@ Easy-to-use open source tools for FPGA design. All built on one engine. [www.ope
 
 | Repo | What it is | Status |
 | --- | --- | --- |
-| [logix-engine](https://github.com/openlogix/logix-engine) | Logix Engine. One open engine to build and test FPGA designs and program boards, for any IDE or AI agent. Every other product runs on it | In development |
-| [logix-catalog](https://github.com/openlogix/logix-catalog) | Logix Catalog. "Every FPGA board, described once." Open board data for every Open Logix tool and any other project | In development |
-| [logix-core](https://github.com/openlogix/logix-core) | The FPGA tools Logix Engine downloads, packaged from their upstream releases. Not a product, and not for use on its own | Live |
+| [logix-engine](https://github.com/openlogix/logix-engine) | Logix Engine. One open engine to build and test FPGA designs and program boards, for any IDE or AI agent. | In development |
+| [logix-catalog](https://github.com/openlogix/logix-catalog) | Logix Catalog. Every FPGA board, described once. Open board data for every Open Logix tool and any other project. | In development |
+| [logix-core](https://github.com/openlogix/logix-core) | The FPGA tools Logix Engine downloads, packaged from their upstream releases. Not for use on its own: only through Logix Engine; its content may change at any time. | Live |
 | [logix-ide](https://github.com/openlogix/logix-ide) | Logix IDE. The Arduino experience, for FPGAs. | Previews available |
-| [logix-ai](https://github.com/openlogix/logix-ai) | Logix AI. AI agents that design and test FPGA logic and program the board | In development |
-| [logix-cli](https://github.com/openlogix/logix-cli) | Logix CLI. Build and test FPGA designs and program boards from the command line | Planned |
-| [logix-vscode](https://github.com/openlogix/logix-vscode) | Logix VSCode. The full FPGA workflow inside VS Code | Planned |
-| [logix-studio](https://github.com/openlogix/logix-studio) | Logix Studio. Draw your FPGA design | Planned |
-| [logix-remote](https://github.com/openlogix/logix-remote) | Logix Remote. A network adapter for developing on FPGA boards anywhere | Planned |
-| [openlogix.github.io](https://github.com/openlogix/openlogix.github.io) | The Open Logix website, [www.openlogix.org](https://www.openlogix.org) | Live |
-| [.github](https://github.com/openlogix/.github) | Shared GitHub Actions for the other repos' workflows, and this page | Live |
+| [logix-ai](https://github.com/openlogix/logix-ai) | Logix AI. AI agents that design and test FPGA logic and program the board. | In development |
+| [logix-cli](https://github.com/openlogix/logix-cli) | Logix CLI. FPGA builds from the command line: build and test designs, program boards. | Planned |
+| [logix-vscode](https://github.com/openlogix/logix-vscode) | Logix VSCode. The full FPGA workflow inside VS Code. | Planned |
+| [logix-studio](https://github.com/openlogix/logix-studio) | Logix Studio. Draw your FPGA design. | Planned |
+| [logix-remote](https://github.com/openlogix/logix-remote) | Logix Remote. A network adapter for developing on FPGA boards anywhere. | Planned |
+| [openlogix.github.io](https://github.com/openlogix/openlogix.github.io) | The Open Logix website, www.openlogix.org. | Live |
+| [.github](https://github.com/openlogix/.github) | Shared GitHub Actions and org-wide files for Open Logix repos. | Live |
 
 ## License
 

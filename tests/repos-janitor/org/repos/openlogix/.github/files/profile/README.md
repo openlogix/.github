@@ -1,12 +1,12 @@
 | Repo | What |
 | --- | --- |
-| [.github](https://github.com/openlogix/.github) | .github |
-| [logix-catalog](https://github.com/openlogix/logix-catalog) | logix-catalog |
-| [logix-core](https://github.com/openlogix/logix-core) | logix-core |
-| [logix-engine](https://github.com/openlogix/logix-engine) | logix-engine |
-| [logix-ide](https://github.com/openlogix/logix-ide) | logix-ide |
-| [logix-studio](https://github.com/openlogix/logix-studio) | logix-studio |
-| [openlogix.github.io](https://github.com/openlogix/openlogix.github.io) | openlogix.github.io |
+| [.github](https://github.com/openlogix/.github) | The .github repo. |
+| [logix-catalog](https://github.com/openlogix/logix-catalog) | The logix-catalog repo. |
+| [logix-core](https://github.com/openlogix/logix-core) | An old description. |
+| [logix-engine](https://github.com/openlogix/logix-engine) | The logix-engine repo. |
+| [logix-ide](https://github.com/openlogix/logix-ide) | The logix-ide repo. |
+| [logix-studio](https://github.com/openlogix/logix-studio) | The logix-studio repo. |
+| [openlogix.github.io](https://github.com/openlogix/openlogix.github.io) | The openlogix.github.io repo. |
 
 ## Badges
 

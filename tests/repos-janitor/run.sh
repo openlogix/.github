@@ -20,7 +20,7 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "❌&nbsp;&nbsp; **28 failed, 77 passed** · 8 repos · 2026-11-14 03:00 UTC" \
+  "❌&nbsp;&nbsp; **29 failed, 76 passed** · 8 repos · 2026-11-14 03:00 UTC" \
   "### Failed" \
   "### Passed" \
   "### Verification results" \

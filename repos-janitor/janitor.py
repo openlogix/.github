@@ -890,7 +890,7 @@ def check_badges(repo: Repo, repos: dict[str, Repo], report: Report) -> None:
 def check_org_lists(repo: Repo, repos: dict[str, Repo], report: Report) -> None:
     """org-lists-should-include-repo: the org page (.github's
     profile/README.md, shown on github.com/openlogix) has its row in the repos
-    table, and the org page and the website README's Status section each have
+    table, with its About description, and the org page and the website README's Status section each have
     a badge for each of its workflows, labeled as in its own README, and none
     for others."""
     page = f"https://github.com/{repo.name}"
@@ -904,8 +904,12 @@ def check_org_lists(repo: Repo, repos: dict[str, Repo], report: Report) -> None:
     if shared is not None:
         inst.link("org page", blob(shared.name, shared.branch, "profile/README.md"))
         text = raw(shared.name, "profile/README.md", shared.branch) if "profile/README.md" in shared.files else ""
-        if f"| [{repo.short}]({page}) |" not in text:
+        row = next((line for line in text.splitlines() if line.startswith(f"| [{repo.short}]({page}) |")), None)
+        about = (repo.info.get("description") or "").strip()
+        if row is None:
             wrong.append("not in the org page's repos table")
+        elif about and about not in row:
+            wrong.append("its row in the org page's repos table doesn't have its About description")
         lists.append(("the org page", text))
     if site is not None:
         inst.link("website Status", blob(site.name, site.branch, "README.md") + "#status")

@@ -10,6 +10,7 @@
 ::error title=Org lists should include the repo (openlogix/logix-cli)::openlogix/logix-cli: Mismatch: not in the org page's repos table.
 ::error title=Repo sidebar should match its type (openlogix/logix-core)::openlogix/logix-core: Can't read its sections from the repo page: GitHub may have changed the page; update repos-janitor/janitor.py.
 ::error title=Repo should have its standard files (openlogix/logix-core)::openlogix/logix-core: Missing: LICENSE-APACHE.
+::error title=Org lists should include the repo (openlogix/logix-core)::openlogix/logix-core: Mismatch: its row in the org page's repos table doesn't have its About description.
 ::error title=Config should be valid (openlogix/logix-engine)::001/dev.jsonc: logix-catalog: no release 2026-11-30 in openlogix/logix-catalog (HTTP 404: Not Found)
 ::error title=Release should be valid (openlogix/logix-engine)::2026-11-10: SHA256SUMS lists logix-engine-linux-x86-64-20261110.tgz, which isn't there.
 ::error title=Daily build should pass (openlogix/logix-engine)::test.yaml: Failure (2026-11-14 00:00 UTC).
@@ -26,4 +27,4 @@
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-other-v1.json: No owner file schemas/logix-other-v1.json.
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-remote-config-v1.json: Differs.
 ::error title=Repo metadata should be valid (openlogix/openlogix.github.io)::.github/logix-repo-metadata.jsonc: Missing.
-repos-janitor: 8 repos, 28 failed, 77 passed.
+repos-janitor: 8 repos, 29 failed, 76 passed.
