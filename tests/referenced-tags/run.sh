@@ -16,10 +16,12 @@ check() {
     echo "ok: $1"
   fi
 }
-# logix-ide's 001/dev.jsonc names engine 2026-11-10; nothing names the IDE.
-check openlogix/logix-engine "2026-11-10 "
-# Named by logix-ide's dev.jsonc, logix-engine's dev.jsonc and logix-studio's.
-check openlogix/logix-catalog "2026-11-01 2026-11-12 2026-11-30 "
+# logix-ide's 001/dev.jsonc names engine 2026-11-10, its prod.jsonc
+# 2026-11-01; nothing names the IDE.
+check openlogix/logix-engine "2026-11-01 2026-11-10 "
+# Named by logix-ide's dev.jsonc and prod.jsonc, logix-engine's dev.jsonc and
+# logix-studio's.
+check openlogix/logix-catalog "2026-11-01 2026-11-05 2026-11-12 2026-11-30 "
 check openlogix/logix-core "2026-11-03 "
 check openlogix/logix-ide ""
 [[ $failures -eq 0 ]] || exit 1
