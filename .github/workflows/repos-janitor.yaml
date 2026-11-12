@@ -41,19 +41,10 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install --quiet --disable-pip-version-check jsonschema==4.26.0
 
-      # The SHA-256s the last run saw (check 4: rebuilt releases). A new
-      # cache entry every run; restoring takes the newest.
-      - name: Restore the last run's state
-        uses: actions/cache/restore@v6
-        with:
-          path: janitor-state.json
-          key: repos-janitor-state-${{ github.run_id }}
-          restore-keys: repos-janitor-state-
-
       - name: Check the repos
         env:
           GH_TOKEN: ${{ github.token }}
-        run: '"$RUNNER_TEMP/venv/bin/python" repos-janitor/janitor.py --state janitor-state.json --summary janitor-summary.md --results janitor-results.json'
+        run: '"$RUNNER_TEMP/venv/bin/python" repos-janitor/janitor.py --summary janitor-summary.md --results janitor-results.json'
 
       # The report on the run's summary page, and as an artifact, also when
       # a check failed.
@@ -72,11 +63,3 @@ jobs:
           path: |
             janitor-summary.md
             janitor-results.json
-
-      # Saved even when a check failed, so the next run compares with it.
-      - name: Save the state
-        if: always()
-        uses: actions/cache/save@v6
-        with:
-          path: janitor-state.json
-          key: repos-janitor-state-${{ github.run_id }}

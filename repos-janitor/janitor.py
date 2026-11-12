@@ -2,10 +2,11 @@
 can see, and reports it in one place (modeled on Apio's janitor). The design
 is in this repo's CLAUDE.md (repos-janitor).
 
-    python3 repos-janitor/janitor.py --state <file> --summary <file> --results <file>
+    python3 repos-janitor/janitor.py --summary <file> --results <file>
 
 The model, as Apio's: a *requirement type* (such as release-should-be-stable)
-has a title and a severity (error or warning). Analyzers create *requirement
+has a title; every failed requirement is an error (no warnings: something
+either needs fixing or it doesn't). Analyzers create *requirement
 instances*: a type applied to one subject (a repo, a release, a config file,
 a workflow), each with why it applies ([Why] notes; several analyzers can
 add reasons to the same instance) and links to examine or fix it. Verifiers
@@ -15,9 +16,7 @@ act on failed instances.
 Reads every public, unarchived repo in the org with the gh CLI (`gh api`,
 `gh release download`), read-only. Writes --summary (Markdown, for the run's
 summary page) and --results (JSON, for tools); prints a GitHub annotation
-per failed instance. The exit status is 1 if an error-level requirement
-failed. --state is a JSON file of the SHA-256s seen in the last run, read if
-it exists and written at the end.
+per failed instance. The exit status is 1 if any requirement failed.
 
 For tests: JANITOR_NOW (an ISO time) sets the current time.
 """
@@ -39,9 +38,8 @@ ORG = "openlogix"
 # The platforms remote configs must serve. Add windows-x86-64 and
 # linux-x86-64 with Milestones 3 and 4.
 PLATFORMS = ["darwin-arm64"]
-# A dev pin this many days older than the dependency's newest release warns.
-STALE_DAYS = 7
-# A scheduled workflow that hasn't run for this long warns.
+# A scheduled workflow that hasn't run for this long fails (GitHub turns off
+# a public repo's schedules after 60 days without activity).
 RUN_MAX_AGE = dt.timedelta(hours=26)
 WEBSITE = "openlogix.github.io"
 # The repos whose schemas/ own the website's docs/schemas/ copies.
@@ -62,22 +60,21 @@ from check_remote_config import strip_comments  # noqa: E402
 
 # ---------------------------------------------------------------- the model
 
-# Requirement types: id -> (title, severity).
+# Requirement types: id -> title. Every failure is an error.
 REQUIREMENTS = {
-    "release-tag-should-be-a-date": ("Release tag should be a date", "error"),
-    "config-should-be-valid": ("Config should be valid", "error"),
-    "release-should-be-valid": ("Release should be valid", "error"),
-    "release-should-be-stable": ("Release should be stable", "error"),
-    "release-should-be-latest": ("Release should be Latest", "warning"),
-    "latest-should-be-used": ("Latest should be used by a recommended install", "warning"),
-    "latest-should-be-prod": ("Latest should be a prod release", "error"),
-    "pin-should-be-recent": ("Dev pin should be recent", "warning"),
-    "release-file-should-not-change": ("Release file should not change", "warning"),
-    "schema-copy-should-match": ("Schema copy should match its owner", "error"),
-    "daily-build-should-pass": ("Daily build should pass", "error"),
-    "daily-build-should-be-recent": ("Daily build should be recent", "warning"),
-    "repo-should-have-one-type": ("Repo should have one type", "error"),
-    "repo-should-have-no-releases": ("Repo should have no releases", "error"),
+    "release-tag-should-be-a-date": "Release tag should be a date",
+    "config-should-be-valid": "Config should be valid",
+    "release-should-be-valid": "Release should be valid",
+    "release-should-be-stable": "Release should be stable",
+    "release-should-be-latest": "Release should be Latest",
+    "latest-should-be-used": "Latest should be used by a recommended install",
+    "latest-should-be-prod": "Latest should be a prod release",
+    "dev-should-not-lag-behind-prod": "Dev config should not lag behind prod",
+    "schema-copy-should-match": "Schema copy should match its owner",
+    "daily-build-should-pass": "Daily build should pass",
+    "daily-build-should-be-recent": "Daily build should be recent",
+    "repo-should-have-one-type": "Repo should have one type",
+    "repo-should-have-no-releases": "Repo should have no releases",
 }
 
 
@@ -97,10 +94,6 @@ class Instance:
     passed: bool | None = None
     # (label, url) to examine or fix it.
     links: list = field(default_factory=list)
-
-    @property
-    def severity(self) -> str:
-        return REQUIREMENTS[self.req][1]
 
     def because(self, why: str) -> "Instance":
         if why not in self.why:
@@ -133,8 +126,8 @@ class Report:
     def done(self) -> list[Instance]:
         return [i for i in self.instances.values() if i.passed is not None]
 
-    def failed(self, severity: str) -> list[Instance]:
-        return [i for i in self.done() if not i.passed and i.severity == severity]
+    def failed(self) -> list[Instance]:
+        return [i for i in self.done() if not i.passed]
 
     def passed(self) -> list[Instance]:
         return [i for i in self.done() if i.passed]
@@ -340,10 +333,11 @@ def check_configs(repo: Repo, report: Report) -> list[dict]:
     return entries
 
 
-def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: Report,
-               state: dict, new_state: dict) -> None:
-    """pin-should-be-recent (dev files only: prod lags on purpose) and
-    release-file-should-not-change (every file a config names)."""
+def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: Report) -> None:
+    """dev-should-not-lag-behind-prod: a dev config naming an older release
+    than its version's prod config (a dev file left over after a promotion)."""
+    prod_pins = {(e["config"].rsplit("/", 1)[0], e["name"]): e for e in entries
+                 if e["config"].endswith("/prod.jsonc")}
     for e in entries:
         dep = repos.get(e.get("repo", ""))
         tag = e.get("release", "")
@@ -352,44 +346,23 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
         cfg = config_name(e["config"])
         cfg_url = blob(repo.name, repo.branch, e["config"])
         channel = cfg.split("/")[1][: -len(".jsonc")]
-        if channel != "prod":
-            dates = [d for d in (tag_date(r["tag_name"]) for r in dep.releases()) if d]
-            named_date = tag_date(tag)
-            if dates and named_date:
-                newest = max(dates)
-                behind = (newest - named_date).days
-                inst = report.require(
-                    repo.name, "pin-should-be-recent", f"{e['config']}|{e['name']}",
-                    f"[`{cfg}`]({cfg_url}) → {e['name']} [`{tag}`]({release_page(dep.name, tag)})",
-                    f"{cfg} → {e['name']} {tag}", config=cfg, dependency=e["name"], release_tag=tag)
-                inst.because(f"{repo.short}'s {channel} releases download what [`{cfg}`]({cfg_url}) names, "
-                             "and dev should keep up with new releases (prod lags on purpose).")
-                inst.link("the config, to repin", cfg_url)
-                inst.link("the newest release", release_page(dep.name, newest.isoformat()))
-                if behind > STALE_DAYS:
-                    inst.verdict(False, f"It's {behind} days older than the newest release, `{newest}`.")
-                else:
-                    inst.verdict(True, "It's the newest release." if behind == 0
-                                 else f"It's {behind} day(s) behind the newest, `{newest}`.")
-        file_sums = sums(dep.name, tag) or {}
-        for platform in PLATFORMS:
-            file = e.get("file", "").replace("${PLATFORM}", platform).replace("${YYYYMMDD}", tag.replace("-", ""))
-            sha = file_sums.get(file)
-            if not sha:
-                continue  # config-should-be-valid reports it.
-            key = f"{tag}/{file}"
-            new_state[f"{dep.name}/{key}"] = sha
-            inst = report.require(dep.name, "release-file-should-not-change", key,
-                                  f"[`{tag}`]({release_page(dep.name, tag)}) `{file}`", f"{tag} {file}",
-                                  release_tag=tag, file=file)
-            inst.because(f"Named by {repo.short} [`{cfg}`]({cfg_url}); installed products check its SHA-256.")
-            inst.link("the release", release_page(dep.name, tag))
-            old = state.get(f"{dep.name}/{key}")
-            if old and old != sha:
-                inst.verdict(False, "It was rebuilt under the same tag: its SHA-256 changed since the last run, "
-                                    "so installed products download it again.")
-            elif inst.passed is None:
-                inst.verdict(True, "Unchanged since the last run." if old else "Seen for the first time.")
+        prod = prod_pins.get((e["config"].rsplit("/", 1)[0], e["name"]))
+        if channel == "dev" and prod and prod.get("repo") == e.get("repo") and DATE_TAG.match(prod.get("release", "")):
+            prod_cfg = config_name(prod["config"])
+            prod_url = blob(repo.name, repo.branch, prod["config"])
+            inst = report.require(
+                repo.name, "dev-should-not-lag-behind-prod", f"{e['config']}|{e['name']}",
+                f"[`{cfg}`]({cfg_url}) → {e['name']} [`{tag}`]({release_page(dep.name, tag)})",
+                f"{cfg} → {e['name']} {tag}", config=cfg, dependency=e["name"], release_tag=tag)
+            inst.because(f"Dev releases download what [`{cfg}`]({cfg_url}) names; without it they'd use "
+                         f"[`{prod_cfg}`]({prod_url}), so dev should never be older than prod.")
+            inst.link("the dev config, to repin or delete", cfg_url).link("the prod config", prod_url)
+            if tag < prod["release"]:
+                inst.verdict(False, f"It's older than prod's `{prod['release']}`: probably left over after a promotion. "
+                                    f"Delete `{cfg}` (dev then uses prod's), or repin it.")
+            else:
+                inst.verdict(True, "It's the same as prod's." if tag == prod["release"]
+                             else f"It's newer than prod's `{prod['release']}`.")
 
 
 def check_releases(repos: dict[str, Repo], entries_by_repo: dict[str, list[dict]], report: Report) -> None:
@@ -654,18 +627,18 @@ def ordered(instances: list[Instance]) -> list[Instance]:
 
 
 def write_summary(report: Report, checked: int, path: str, results_json: str) -> None:
-    """The run's summary page: one status line, then errors and warnings by
+    """The run's summary page: one status line, then the errors by
     repo and requirement, each subject with its [Why], [Result] and [Fix]
     links; then what passed, folded per repo; then the JSON results."""
-    errors, warnings, passed = report.failed("error"), report.failed("warning"), report.passed()
-    mark = "❌" if errors else "⚠️" if warnings else "✅"
-    lines = [f"{mark}&nbsp;&nbsp; **{plural(len(errors), 'error')}, {plural(len(warnings), 'warning')}, "
+    errors, passed = report.failed(), report.passed()
+    mark = "❌" if errors else "✅"
+    lines = [f"{mark}&nbsp;&nbsp; **{plural(len(errors), 'error')}, "
              f"{len(passed)} passed** · {checked} repos · {now().strftime('%Y-%m-%d %H:%M')} UTC"]
 
     def block(instances: list[Instance]) -> list[str]:
         out = []
         for req in sorted({i.req for i in instances}, key=list(REQUIREMENTS).index):
-            out.append(f"- {REQUIREMENTS[req][0]}")
+            out.append(f"- {REQUIREMENTS[req]}")
             for i in ordered([i for i in instances if i.req == req]):
                 out.append(f"  - {i.subject_md}")
                 out += [f"    - [Why] {w}" for w in i.why]
@@ -675,12 +648,10 @@ def write_summary(report: Report, checked: int, path: str, results_json: str) ->
                                + " · ".join(f"[{label}]({url})" for label, url in i.links))
         return out
 
-    for title, instances in (("Errors", errors), ("Warnings", warnings)):
-        if not instances:
-            continue
-        lines += ["", "<br>", "", f"### {title}"]
-        for repo in sorted({i.repo for i in instances}):
-            lines += ["", f"**{repo}**"] + block([i for i in instances if i.repo == repo])
+    if errors:
+        lines += ["", "<br>", "", "### Errors"]
+        for repo in sorted({i.repo for i in errors}):
+            lines += ["", f"**{repo}**"] + block([i for i in errors if i.repo == repo])
     lines += ["", "<br>", "", "### Passed"]
     for repo in sorted({i.repo for i in passed}):
         mine = [i for i in passed if i.repo == repo]
@@ -700,19 +671,15 @@ def results(report: Report) -> dict:
                      "links": dict(i.links)}
             out.setdefault(i.repo, {}).setdefault(i.req, []).append(entry)
         return out
-    return {"passed": not report.failed("error"), "errors": section(report.failed("error")),
-            "warnings": section(report.failed("warning")), "successes": section(report.passed())}
+    return {"passed": not report.failed(), "failures": section(report.failed()),
+            "successes": section(report.passed())}
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--state", required=True, help="the last run's SHA-256s (JSON), read and written")
     ap.add_argument("--summary", required=True, help="the Markdown report (the workflow adds it to the run's summary)")
     ap.add_argument("--results", required=True, help="the results as JSON")
     args = ap.parse_args()
-    state_file = Path(args.state)
-    state = json.loads(state_file.read_text()) if state_file.is_file() else {}
-    new_state: dict[str, str] = {}
 
     infos = [i for i in api(f"orgs/{ORG}/repos?type=public&per_page=100") or [] if not i["archived"]]
     repos = {i["full_name"]: Repo(i) for i in infos}
@@ -722,7 +689,7 @@ def main() -> int:
         check_type(repo, report)
         check_tags(repo, report)
         entries_by_repo[repo.name] = check_configs(repo, report)
-        check_pins(repo, entries_by_repo[repo.name], repos, report, state, new_state)
+        check_pins(repo, entries_by_repo[repo.name], repos, report)
         check_runs(repo, report)
     check_releases(repos, entries_by_repo, report)
     reach = reachable_releases(repos)
@@ -730,15 +697,13 @@ def main() -> int:
         check_latest(repo, reach, report)
     check_schemas(repos, report)
 
-    state_file.write_text(json.dumps(new_state, indent=2, sort_keys=True) + "\n")
     res = json.dumps(results(report), indent=2)
     Path(args.results).write_text(res + "\n")
-    for i in ordered(report.failed("error")) + ordered(report.failed("warning")):
-        print(f"::{i.severity} title={REQUIREMENTS[i.req][0]} ({i.repo})::{plain(i.subject)}: {plain(' '.join(i.result))}")
-    print(f"repos-janitor: {len(repos)} repos, {plural(len(report.failed('error')), 'error')}, "
-          f"{plural(len(report.failed('warning')), 'warning')}, {len(report.passed())} passed.")
+    for i in ordered(report.failed()):
+        print(f"::error title={REQUIREMENTS[i.req]} ({i.repo})::{plain(i.subject)}: {plain(' '.join(i.result))}")
+    print(f"repos-janitor: {len(repos)} repos, {plural(len(report.failed()), 'error')}, {len(report.passed())} passed.")
     write_summary(report, len(repos), args.summary, res)
-    return 1 if report.failed("error") else 0
+    return 1 if report.failed() else 0
 
 
 if __name__ == "__main__":

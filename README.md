@@ -51,7 +51,7 @@ The pre-release policy (pre-releases are kept about 5 days unless made stable) i
 
 ## repos-janitor
 
-[repos-janitor.yaml](.github/workflows/repos-janitor.yaml) checks across the Open Logix repos every 6 hours what no single repo's CI can see, as requirements (as Apio's janitor): remote configs valid, the releases they name valid and (for prod) stable, each repo's Latest right for its type, dev pins recent, release files unchanged, the website's schema copies, every repo's daily builds, and one type topic per repo. Its run summary lists the errors and warnings, each with why it applies, the result and links to fix it, then what passed; the run, and its badge above, go red on any error. It only reads, and only reports for now.
+[repos-janitor.yaml](.github/workflows/repos-janitor.yaml) checks across the Open Logix repos every 6 hours what no single repo's CI can see, as requirements (as Apio's janitor): remote configs valid, the releases they name valid and (for prod) stable, each repo's Latest right for its type, dev configs not behind prod, release tags that are dates, the website's schema copies, every repo's daily builds, and one type topic per repo. Its run summary lists the errors and warnings, each with why it applies, the result and links to fix it, then what passed; the run, and its badge above, go red on any error. It only reads, and only reports for now.
 
 ## Versions
 

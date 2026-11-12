@@ -9,9 +9,8 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo="$here/../.."
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-cp "$here/state.json" "$tmp/state.json"
 export PATH="$here/fake-gh:$PATH" FAKE_GH_ORG="$here/org" JANITOR_NOW="2026-11-14T03:00:00Z"
-out="$(python3 "$repo/repos-janitor/janitor.py" --state "$tmp/state.json" --summary "$tmp/summary.md" --results "$tmp/results.json" 2>&1)"
+out="$(python3 "$repo/repos-janitor/janitor.py" --summary "$tmp/summary.md" --results "$tmp/results.json" 2>&1)"
 status=$?
 failures=0
 fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
@@ -21,9 +20,8 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "❌&nbsp;&nbsp; **12 errors, 4 warnings, 38 passed** · 8 repos · 2026-11-14 03:00 UTC" \
+  "❌&nbsp;&nbsp; **15 errors, 36 passed** · 8 repos · 2026-11-14 03:00 UTC" \
   "### Errors" \
-  "### Warnings" \
   "### Passed" \
   "### Verification results" \
   "**openlogix/logix-ide**" \
@@ -32,7 +30,6 @@ for text in \
   "    - [Why] Named by logix-ide [\`001/dev.jsonc\`](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc)." \
   "    - [Result] It has no \`BUILD-INFO.json\`." \
   "    - [Fix] [the release](https://github.com/openlogix/logix-catalog/releases/tag/2026-11-01)" \
-  "    - [Fix] [the config, to repin](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc) · [the newest release](https://github.com/openlogix/logix-catalog/releases/tag/2026-11-12)" \
   "    - [Fix] [the workflow](https://github.com/openlogix/logix-engine/actions/workflows/test.yaml) · [the run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
   "- Latest should be a prod release" \
   "    - [Result] It's on dev: promote it, or mark a prod release Latest." \
@@ -42,7 +39,9 @@ for text in \
   "    - [Why] Used by a recommended install: logix-engine [\`2026-11-01\`](https://github.com/openlogix/logix-engine/releases/tag/2026-11-01) (Latest) → [\`001/prod.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/prod.jsonc) → logix-core \`2026-11-03\`." \
   "    - [Why] On the prod list of [\`001/channels.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/channels.jsonc): a prod release must be stable." \
   "- Latest should be used by a recommended install" \
-  "- Dev pin should be recent" \
+  "- Dev config should not lag behind prod" \
+  "    - [Result] It's older than prod's \`2026-11-05\`: probably left over after a promotion. Delete \`001/dev.jsonc\` (dev then uses prod's), or repin it." \
+  "- Daily build should be recent" \
   "- Repo should have one type" \
   "- Repo should have no releases" \
   "- Release tag should be a date" \
@@ -50,21 +49,18 @@ for text in \
   "    - [Result] All 3 releases are date-tagged."; do
   grep -qF -- "$text" "$tmp/summary.md" || fail "the summary has no \"$text\""
 done
+# No warnings: every failure is an error.
+! grep -q "arning" "$tmp/summary.md" || fail "the summary mentions warnings"
 # The JSON results, as Apio's: by repo, then requirement type.
 python3 - "$tmp/results.json" <<'PYEOF' || fail "the JSON results are wrong"
 import json, sys
 r = json.load(open(sys.argv[1]))
-assert r["passed"] is False
-e = r["errors"]["openlogix/logix-catalog"]["release-should-be-valid"][0]
+assert r["passed"] is False and set(r) == {"passed", "failures", "successes"}, list(r)
+e = r["failures"]["openlogix/logix-catalog"]["release-should-be-valid"][0]
 assert e["release_tag"] == "2026-11-01" and e["notes"] == [
     "[Why] Named by logix-ide 001/dev.jsonc.", "[Result] It has no BUILD-INFO.json."], e
-assert "pin-should-be-recent" in r["warnings"]["openlogix/logix-ide"]
+assert "dev-should-not-lag-behind-prod" in r["failures"]["openlogix/logix-ide"]
 assert "latest-should-be-prod" in r["successes"]["openlogix/logix-engine"]
 PYEOF
-# The state now holds this run's SHA-256s.
-if ! grep -q '"openlogix/logix-engine/2026-11-10/logix-engine-darwin-arm64-20261110.tgz": "[0-9a-f]\{64\}"' "$tmp/state.json" \
-   || grep -q '"0000000000' "$tmp/state.json"; then
-  fail "the state wasn't updated:"; cat "$tmp/state.json"
-fi
 [[ $failures -eq 0 ]] || exit 1
 echo "All repos-janitor tests passed."
