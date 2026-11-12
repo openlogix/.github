@@ -4,16 +4,24 @@
 ::error title=Release should be valid (openlogix/logix-catalog)::2026-11-01: No BUILD-INFO.json.
 ::error title=Release should be valid (openlogix/logix-catalog)::2026-11-30: Missing.
 ::error title=Latest should be used by a recommended install (openlogix/logix-catalog)::2026-11-05: Not used by a recommended install.
+::error title=README header should be standard (openlogix/logix-catalog)::README.md: Mismatch: no banner (light and dark) followed by <br>.
 ::error title=Repo should have no releases (openlogix/logix-cli)::openlogix/logix-cli: Has releases: 2026-11-01.
+::error title=Repo sidebar should match its type (openlogix/logix-cli)::openlogix/logix-cli: Mismatch: Releases should be hidden.
+::error title=Org lists should include the repo (openlogix/logix-cli)::openlogix/logix-cli: Mismatch: not in the org page's table.
+::error title=Repo sidebar should match its type (openlogix/logix-core)::openlogix/logix-core: Can't read its sections from the repo page: GitHub may have changed the page; update repos-janitor/janitor.py.
+::error title=Repo should have its standard files (openlogix/logix-core)::openlogix/logix-core: Missing: LICENSE-APACHE.
 ::error title=Config should be valid (openlogix/logix-engine)::001/dev.jsonc: logix-catalog: no release 2026-11-30 in openlogix/logix-catalog (HTTP 404: Not Found)
 ::error title=Release should be valid (openlogix/logix-engine)::2026-11-10: SHA256SUMS lists logix-engine-linux-x86-64-20261110.tgz, which isn't there.
 ::error title=Daily build should pass (openlogix/logix-engine)::test.yaml: Failure (2026-11-14 00:00 UTC).
 ::error title=Repo settings should match (openlogix/logix-engine)::openlogix/logix-engine: Mismatch: wiki should be off.
 ::error title=Dev config should not lag behind prod (openlogix/logix-ide)::001/dev.jsonc → logix-catalog 2026-11-01: Older than prod's 2026-11-05.
 ::error title=Daily build should be recent (openlogix/logix-ide)::build.yaml: Last run 2 day(s) ago (2026-11-12 00:00 UTC).
+::error title=README badges should match the workflows (openlogix/logix-ide)::README.md: Mismatch: manual.yaml's badge should have ?branch=main&label=manual only; no badge for build.yaml.
+::error title=Org lists should include the repo (openlogix/logix-ide)::openlogix/logix-ide: Mismatch: no website Status badge for manual.yaml.
 ::error title=Latest should be a prod release (openlogix/logix-studio)::2026-11-02: On dev, not prod.
 ::error title=Repo settings should match (openlogix/logix-studio)::openlogix/logix-studio: Mismatch: its README should link openlogix/logix-ide's issues.
+::error title=About should be set (openlogix/logix-studio)::openlogix/logix-studio: Mismatch: its website should be https://www.openlogix.org/studio/.
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-other-v1.json: No owner file schemas/logix-other-v1.json.
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-remote-config-v1.json: Differs.
 ::error title=Repo metadata should be valid (openlogix/openlogix.github.io)::.github/logix-repo-metadata.jsonc: Missing.
-repos-janitor: 8 repos, 18 failed, 40 passed.
+repos-janitor: 8 repos, 26 failed, 79 passed.

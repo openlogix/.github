@@ -1,6 +1,6 @@
 #!/bin/bash
 # Tests repos-janitor/janitor.py on the fixture org in org/, with a fake gh
-# that answers from it (fake-gh/gh). Each check has a case there that fires;
+# that answers from it (fake-gh/gh) and repo pages from org/pages/. Each check has a case there that fires;
 # the printed findings must be exactly expected-output.txt, and the summary
 # page must list what passed and link where to fix each problem. Run from
 # anywhere; needs python3 with jsonschema. Used by actions-test.yaml.
@@ -9,7 +9,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo="$here/../.."
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-export PATH="$here/fake-gh:$PATH" FAKE_GH_ORG="$here/org" JANITOR_NOW="2026-11-14T03:00:00Z"
+export PATH="$here/fake-gh:$PATH" FAKE_GH_ORG="$here/org" JANITOR_PAGES="$here/org/pages" JANITOR_NOW="2026-11-14T03:00:00Z"
 out="$(python3 "$repo/repos-janitor/janitor.py" --summary "$tmp/summary.md" --results "$tmp/results.json" 2>&1)"
 status=$?
 failures=0
@@ -20,7 +20,7 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "❌&nbsp;&nbsp; **18 failed, 40 passed** · 8 repos · 2026-11-14 03:00 UTC" \
+  "❌&nbsp;&nbsp; **26 failed, 79 passed** · 8 repos · 2026-11-14 03:00 UTC" \
   "### Failed" \
   "### Passed" \
   "### Verification results" \
@@ -62,7 +62,20 @@ for text in \
   "    - [Result] Mismatch: wiki should be off." \
   "    - [Result] Mismatch: private vulnerability reporting should be on." \
   "    - [Result] Mismatch: its README should link \`openlogix/logix-ide\`'s issues." \
-  "    - [Fix] [settings](https://github.com/openlogix/logix-engine/settings)"; do
+  "    - [Fix] [settings](https://github.com/openlogix/logix-engine/settings)" \
+  "- Repo sidebar should match its type" \
+  "    - [Result] Mismatch: Releases should be hidden." \
+  "    - [Fix] [repo page (the About gear)](https://github.com/openlogix/logix-cli)" \
+  "- About should be set" \
+  "    - [Result] Mismatch: its website should be https://www.openlogix.org/studio/." \
+  "- Repo should have its standard files" \
+  "    - [Result] Missing: \`LICENSE-APACHE\`." \
+  "- README header should be standard" \
+  "    - [Result] Standard." \
+  "- README badges should match the workflows" \
+  "    - [Result] No workflows." \
+  "- Org lists should include the repo" \
+  "    - [Result] Mismatch: not in the org page's table."; do
   grep -qF -- "$text" "$tmp/summary.md" || fail "the summary has no \"$text\""
 done
 # No warnings: every failure is an error.

@@ -3,5 +3,7 @@
  "has_wiki": false,
  "has_discussions": false,
  "has_projects": false,
- "vulnerability_reporting": true
+ "vulnerability_reporting": true,
+ "description": "The logix-core repo.",
+ "homepage": "https://www.openlogix.org/engine/"
 }

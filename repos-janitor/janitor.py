@@ -14,11 +14,13 @@ then add the result ([Result] notes) and pass or fail it. Later, fixers may
 act on failed instances.
 
 Reads every public, unarchived repo in the org with the gh CLI (`gh api`,
-`gh release download`), read-only. Writes --summary (Markdown, for the run's
+`gh release download`) and each repo's public page (its About sections),
+read-only. Writes --summary (Markdown, for the run's
 summary page) and --results (JSON, for tools); prints a GitHub annotation
 per failed instance. The exit status is 1 if any requirement failed.
 
-For tests: JANITOR_NOW (an ISO time) sets the current time.
+For tests: JANITOR_NOW (an ISO time) sets the current time, and JANITOR_PAGES
+a folder of <repo>.html files in place of the repos' pages on github.com.
 """
 
 import argparse
@@ -29,6 +31,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -56,6 +59,24 @@ TYPES = ["installable", "dependency", "no-releases"]
 # Where the release model's rules are (Remote updates, Repo types).
 POLICY_URL = "https://github.com/openlogix/openlogix.github.io/blob/main/CLAUDE.md"
 DATE_TAG = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+# Repo setup (the website repo's CLAUDE.md, README header and Status).
+SITE = "https://www.openlogix.org"
+STANDARD_FILES = ["README.md", "LICENSE-MIT", "LICENSE-APACHE"]
+# A placeholder repo (a product not started yet) holds only these, and no
+# CLAUDE.md.
+PLACEHOLDER_FILES = set(STANDARD_FILES) | {METADATA}
+# Each platform's icon in README headers.
+PLATFORM_ICONS = {"darwin-arm64": f"{SITE}/brand/readme/macos.svg"}
+LICENSE_BADGE = "[![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)]("
+STATUS_BADGE = re.compile(r"\[!\[([^\]]*)\]\((https://img\.shields\.io/github/actions/workflow/status/"
+                          r"([^/]+/[^/]+)/([^?)]+)\??([^)]*))\)\]\(([^)]*)\)")
+BANNER = re.compile(r'^<picture>\s*<source media="\(prefers-color-scheme: dark\)" '
+                    r'srcset="' + re.escape(SITE) + r'/brand/readme/([a-z-]+)-dark\.svg">\s*'
+                    r'<img alt="[^"]+" src="' + re.escape(SITE) + r'/brand/readme/([a-z-]+)-light\.svg" '
+                    r'height="96">\s*</picture>\s*<br>')
+# A workflow's triggers that make it run on its own (else it's reusable).
+OWN_TRIGGERS = re.compile(r"\b(push|pull_request|pull_request_target|schedule|workflow_dispatch|"
+                          r"workflow_run|repository_dispatch|release)\b")
 
 sys.path.insert(0, str(ROOT / "actions" / "check-remote-config"))
 from check_remote_config import strip_comments  # noqa: E402
@@ -79,6 +100,12 @@ REQUIREMENTS = {
     "repo-metadata-should-be-valid": "Repo metadata should be valid",
     "repo-should-have-no-releases": "Repo should have no releases",
     "repo-settings-should-match": "Repo settings should match",
+    "repo-sidebar-should-match": "Repo sidebar should match its type",
+    "about-should-be-set": "About should be set",
+    "repo-should-have-standard-files": "Repo should have its standard files",
+    "readme-header-should-be-standard": "README header should be standard",
+    "readme-badges-should-match-workflows": "README badges should match the workflows",
+    "org-lists-should-include-repo": "Org lists should include the repo",
 }
 
 
@@ -161,8 +188,17 @@ def api(path: str):
     return json.loads(out)
 
 
+_raw: dict = {}
+
+
 def raw(repo: str, path: str, ref: str) -> str:
-    """A file's text on a branch."""
+    """A file's text on a branch (read once)."""
+    if (repo, path, ref) not in _raw:
+        _raw[(repo, path, ref)] = _read_raw(repo, path, ref)
+    return _raw[(repo, path, ref)]
+
+
+def _read_raw(repo: str, path: str, ref: str) -> str:
     status, out = gh(
         "api", "-H", "Accept: application/vnd.github.raw", f"repos/{repo}/contents/{path}?ref={ref}"
     )
@@ -188,6 +224,21 @@ def sums(repo: str, tag: str) -> dict[str, str] | None:
         if len(parts) == 2:
             result[parts[1].lstrip("*")] = parts[0].lower()
     return result
+
+
+def repo_page(repo: str) -> str | None:
+    """The repo's public page on github.com (HTML); None if it can't be
+    read. For tests, JANITOR_PAGES is a folder of <repo name>.html files."""
+    pages = os.environ.get("JANITOR_PAGES")
+    if pages:
+        f = Path(pages) / f"{repo.split('/')[1]}.html"
+        return f.read_text() if f.is_file() else None
+    try:
+        req = urllib.request.Request(f"https://github.com/{repo}", headers={"User-Agent": "repos-janitor"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.read().decode("utf-8", "replace")
+    except OSError:
+        return None
 
 
 def blob(repo: str, branch: str, path: str) -> str:
@@ -293,6 +344,23 @@ class Repo:
 
     def channels_path(self, version: str) -> str | None:
         return next((p for p in self.files if p.endswith(f"/{version}/channels.jsonc")), None)
+
+    def readme(self) -> str | None:
+        return raw(self.name, "README.md", self.branch) if "README.md" in self.files else None
+
+    def is_placeholder(self) -> bool:
+        return set(self.files) <= PLACEHOLDER_FILES
+
+    def workflows(self) -> list[str]:
+        """The workflow files that run on their own (not only reusable ones
+        another workflow calls), by file name."""
+        out = []
+        for path in (p for p in self.files if WORKFLOW.match(p)):
+            text = raw(self.name, path, self.branch)
+            m = re.search(r"^on:(.*?)(?=^\S|\Z)", text, re.M | re.S)
+            if m is None or OWN_TRIGGERS.search(m.group(1)) or "workflow_call" not in m.group(1):
+                out.append(path.rsplit("/", 1)[1])
+        return sorted(out)
 
 
 def req_release(repo: Repo, tag: str, report: Report, req: str) -> Instance:
@@ -660,6 +728,178 @@ def check_settings(repo: Repo, repos: dict[str, Repo], report: Report) -> None:
     inst.verdict(not wrong, "Matches." if not wrong else "Mismatch: " + "; ".join(wrong) + ".")
 
 
+def product_page(repo: Repo, site: Repo | None) -> str | None:
+    """The product page of a logix-<short> repo (www.openlogix.org/<short>/),
+    when the website has one."""
+    if site is None or not repo.short.startswith("logix-"):
+        return None
+    short = repo.short[len("logix-"):]
+    return f"{SITE}/{short}/" if f"docs/{short}/index.html" in site.files else None
+
+
+def check_sidebar(repo: Repo, report: Report) -> None:
+    """repo-sidebar-should-match: the About box's sections (the gear on the
+    repo page) follow the repo type: Releases only where there are releases,
+    never Packages or Deployments. GitHub's API can't read them, so this reads
+    them from the repo's public page, which embeds them as JSON."""
+    if repo.type is None:
+        return  # repo-metadata-should-be-valid reports it.
+    page = f"https://github.com/{repo.name}"
+    inst = report.require(repo.name, "repo-sidebar-should-match", repo.name, f"[{repo.name}]({page})", repo.name)
+    inst.because(f"Its type is `{repo.type}`.").link("repo page (the About gear)", page)
+    html = repo_page(repo.name) or ""
+    at = html.find('"sections":{')
+    try:
+        sections = json.JSONDecoder().raw_decode(html, at + len('"sections":'))[0] if at >= 0 else None
+    except ValueError:
+        sections = None
+    if not isinstance(sections, dict) or not {"releases", "packages", "deployments"} <= set(sections):
+        inst.verdict(False, "Can't read its sections from the repo page: GitHub may have changed the page; "
+                     "update `repos-janitor/janitor.py`.")
+        return
+    want = {"Releases": repo.type != "no-releases", "Packages": False, "Deployments": False}
+    wrong = [f"{name} should be {'shown' if on else 'hidden'}"
+             for name, on in want.items() if bool(sections[name.lower()]) != on]
+    inst.verdict(not wrong, "Matches." if not wrong else "Mismatch: " + "; ".join(wrong) + ".")
+
+
+def check_about(repo: Repo, site: Repo | None, report: Report) -> None:
+    """about-should-be-set: a description, and the Website field set to the
+    product page (or, for a repo with none, a page of the website)."""
+    page = f"https://github.com/{repo.name}"
+    inst = report.require(repo.name, "about-should-be-set", repo.name, f"[{repo.name}]({page})", repo.name)
+    inst.because("A repo of the openlogix org.").link("repo page (the About gear)", page)
+    wrong = []
+    if not (repo.info.get("description") or "").strip():
+        wrong.append("no description")
+    home = repo.info.get("homepage") or ""
+    want = product_page(repo, site)
+    if want and home != want:
+        wrong.append(f"its website should be {want}")
+    elif not want and not home.startswith(SITE):
+        wrong.append(f"its website should be a page of {SITE}")
+    inst.verdict(not wrong, "Set." if not wrong else "Mismatch: " + "; ".join(wrong) + ".")
+
+
+def check_files(repo: Repo, report: Report) -> None:
+    """repo-should-have-standard-files: README, both licenses and, except in
+    a placeholder, CLAUDE.md (its AI spec)."""
+    page = f"https://github.com/{repo.name}"
+    inst = report.require(repo.name, "repo-should-have-standard-files", repo.name, f"[{repo.name}]({page})", repo.name)
+    inst.because("A repo of the openlogix org.").link("files", page)
+    want = STANDARD_FILES + ([] if repo.is_placeholder() else ["CLAUDE.md"])
+    missing = [f for f in want if f not in repo.files]
+    inst.verdict(not missing, "All there." if not missing
+                 else f"Missing: {', '.join(f'`{f}`' for f in missing)}.")
+
+
+def check_readme_header(repo: Repo, site: Repo | None, report: Report) -> None:
+    """readme-header-should-be-standard: the banner, the license badge, the
+    platform icons (installables), the status badges and the entry-point
+    links, in that order, before the first section."""
+    text = repo.readme()
+    if text is None:
+        return  # repo-should-have-standard-files reports it.
+    url = blob(repo.name, repo.branch, "README.md")
+    inst = report.require(repo.name, "readme-header-should-be-standard", "README.md", f"[`README.md`]({url})",
+                          "README.md", file="README.md")
+    inst.because("A repo of the openlogix org.").link("README", url).link(
+        "the rule", POLICY_URL + "#product-pages")
+    head = text.split("\n## ", 1)[0]
+    wrong = []
+    banner = BANNER.match(head.lstrip())
+    if banner is None or banner.group(1) != banner.group(2):
+        wrong.append("no banner (light and dark) followed by `<br>`")
+    order = []
+    lic = head.find(LICENSE_BADGE)
+    if lic < 0:
+        wrong.append("no license badge")
+    order.append(("license badge", lic))
+    if repo.type == "installable":
+        for platform in PLATFORMS:
+            at = head.find(f'<img src="{PLATFORM_ICONS[platform]}" height="40"')
+            if at < 0:
+                wrong.append(f"no {platform} icon")
+            order.append((f"{platform} icon", at))
+    badge = STATUS_BADGE.search(head)
+    order.append(("status badges", badge.start() if badge else -1))
+    product = product_page(repo, site)
+    if product and not repo.is_placeholder():
+        links = f"**[Main page]({product})**"
+        if ".github/workflows/publish-docs.yaml" in repo.files:
+            links += f" · [Docs]({SITE}/{repo.short}/)"
+        at = head.find(links)
+        if at < 0:
+            wrong.append(f"no entry-point links (`{links} · ...`)")
+        order.append(("entry-point links", at))
+    elif product and product not in head:
+        wrong.append(f"no link to its main page ({product})")
+    found = [(name, at) for name, at in order if at >= 0]
+    for (a, x), (b, y) in zip(found, found[1:]):
+        if x > y:
+            wrong.append(f"the {a} should come before the {b}")
+    inst.verdict(not wrong, "Standard." if not wrong else "Mismatch: " + "; ".join(wrong) + ".")
+
+
+def check_badges(repo: Repo, report: Report) -> None:
+    """readme-badges-should-match-workflows: one status badge per workflow
+    that runs on its own, showing its last run on main (`branch=main` its only
+    filter), labeled as its alt text, and none for a workflow that isn't
+    there. GitHub's own workflows (pages/...) aren't files and are skipped."""
+    text = repo.readme()
+    if text is None:
+        return
+    url = blob(repo.name, repo.branch, "README.md")
+    inst = report.require(repo.name, "readme-badges-should-match-workflows", "README.md",
+                          f"[`README.md`]({url})", "README.md", file="README.md")
+    inst.because("A repo of the openlogix org.").link("README", url).link(
+        "workflows", f"https://github.com/{repo.name}/actions")
+    workflows = repo.workflows()
+    wrong = []
+    seen = set()
+    for m in STATUS_BADGE.finditer(text):
+        label, owner, wf, query, target = m.group(1), m.group(3), m.group(4), m.group(5), m.group(6)
+        if "%2F" in wf or owner != repo.name:
+            continue  # GitHub's own, or another repo's (the website's Status).
+        if wf not in workflows:
+            wrong.append(f"a badge for `{wf}`, which isn't one of its workflows")
+            continue
+        seen.add(wf)
+        if query != f"branch=main&label={label}":
+            wrong.append(f"`{wf}`'s badge should have `?branch=main&label={label}` only")
+        if target != f"https://github.com/{repo.name}/actions/workflows/{wf}":
+            wrong.append(f"`{wf}`'s badge should link its runs")
+    wrong += [f"no badge for `{wf}`" for wf in workflows if wf not in seen]
+    inst.verdict(not wrong, (f"One per workflow ({len(workflows)})." if workflows else "No workflows.")
+                 if not wrong else "Mismatch: " + "; ".join(wrong) + ".")
+
+
+def check_org_lists(repo: Repo, repos: dict[str, Repo], report: Report) -> None:
+    """org-lists-should-include-repo: the org page's table of repos (in
+    .github's profile/README.md) has its row, and the website README's Status
+    section has a badge for each of its workflows (and none for others)."""
+    page = f"https://github.com/{repo.name}"
+    inst = report.require(repo.name, "org-lists-should-include-repo", repo.name, f"[{repo.name}]({page})", repo.name)
+    inst.because("A repo of the openlogix org.")
+    wrong = []
+    shared, site = repos.get(f"{ORG}/.github"), repos.get(f"{ORG}/{WEBSITE}")
+    if shared is not None:
+        url = blob(shared.name, shared.branch, "profile/README.md")
+        inst.link("org page table", url)
+        table = raw(shared.name, "profile/README.md", shared.branch) if "profile/README.md" in shared.files else ""
+        if f"[{repo.short}]({page})" not in table:
+            wrong.append("not in the org page's table")
+    if site is not None:
+        inst.link("website Status", blob(site.name, site.branch, "README.md") + "#status")
+        status = (site.readme() or "").split("\n## Status", 1)[-1].split("\n## ", 1)[0]
+        listed = {m.group(4) for m in STATUS_BADGE.finditer(status) if m.group(3) == repo.name}
+        workflows = repo.workflows()
+        wrong += [f"no website Status badge for `{wf}`" for wf in workflows if wf not in listed]
+        wrong += [f"a website Status badge for `{wf}`, which isn't one of its workflows"
+                  for wf in sorted(listed) if wf not in workflows and "%2F" not in wf]
+    inst.verdict(not wrong, "Listed." if not wrong else "Mismatch: " + "; ".join(wrong) + ".")
+
+
 # ---------------------------------------------------------------- output
 
 def plural(n: int, word: str) -> str:
@@ -741,8 +981,15 @@ def main() -> int:
         check_pins(repo, entries_by_repo[repo.name], repos, report)
         check_runs(repo, report)
     check_releases(repos, entries_by_repo, report)
+    site = repos.get(f"{ORG}/{WEBSITE}")
     for repo in sorted(repos.values(), key=lambda r: r.name):
         check_settings(repo, repos, report)
+        check_sidebar(repo, report)
+        check_about(repo, site, report)
+        check_files(repo, report)
+        check_readme_header(repo, site, report)
+        check_badges(repo, report)
+        check_org_lists(repo, repos, report)
     reach = reachable_releases(repos)
     for repo in sorted(repos.values(), key=lambda r: r.name):
         check_latest(repo, reach, report)

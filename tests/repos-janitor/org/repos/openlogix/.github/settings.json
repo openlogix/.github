@@ -3,5 +3,7 @@
  "has_wiki": false,
  "has_discussions": false,
  "has_projects": false,
- "vulnerability_reporting": false
+ "vulnerability_reporting": false,
+ "description": "The .github repo.",
+ "homepage": "https://www.openlogix.org"
 }
