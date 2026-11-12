@@ -1,11 +1,13 @@
 name: "Check Remote Config"
 description: >-
-  Checks a repo's remote configs, remote-config/<product>/config-NNN.jsonc
-  (Remote updates, in the website repo's CLAUDE.md): file names, JSONC, the
-  schema (schemas/logix-remote-config-v1.json in this repo), and for every
-  dependency that its release exists (and is stable, with require-stable),
-  that its file exists for
-  each platform and that the release's SHA256SUMS lists it. On main, and on
+  Checks a repo's remote configs, remote-config/<product>/<NNN>/, a folder
+  per config version with channels.jsonc and a config file per channel
+  (Remote updates, in the website repo's CLAUDE.md): names, JSONC, the
+  schemas (logix-remote-config-v1, logix-channels-v1, in this repo), the
+  channels (each release on at most one; prod releases stable releases of
+  this repo; prod.jsonc when there are any), and for every dependency that
+  its release exists (stable, in prod.jsonc), that its file exists for each
+  platform and that the release's SHA256SUMS lists it. On main, and on
   pull requests into main, repos must be in the owner. Reports every problem,
   then fails if there were any. Needs a checkout and GH_TOKEN.
 inputs:
@@ -20,10 +22,6 @@ inputs:
     description: "The only owner repos may have on main and on pull requests into main."
     required: false
     default: openlogix
-  require-stable:
-    description: "'true' to refuse pre-releases. Off while Open Logix is in development (Remote updates, in the website repo's CLAUDE.md)."
-    required: false
-    default: "false"
 runs:
   using: "composite"
   steps:
@@ -40,7 +38,6 @@ runs:
         FOLDER: ${{ inputs.folder }}
         PLATFORMS: ${{ inputs.platforms }}
         OWNER: ${{ inputs.owner }}
-        REQUIRE_STABLE: ${{ inputs.require-stable }}
         GH_TOKEN: ${{ env.GH_TOKEN || github.token }}
       run: |
         set -euo pipefail
@@ -51,7 +48,7 @@ runs:
         fi
         "$RUNNER_TEMP/check-remote-config-venv/bin/python" "${{ github.action_path }}/check_remote_config.py" \
           --folder "$FOLDER" \
-          --schema "${{ github.action_path }}/../../schemas/logix-remote-config-v1.json" \
+          --schemas "${{ github.action_path }}/../../schemas" \
+          --repo "$GITHUB_REPOSITORY" \
           --platforms "$PLATFORMS" \
-          --owner "$owner" \
-          $([[ "$REQUIRE_STABLE" == "true" ]] && echo --require-stable)
+          --owner "$owner"

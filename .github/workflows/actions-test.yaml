@@ -138,6 +138,9 @@ jobs:
           "$RUNNER_TEMP/venv/bin/pip" install --quiet jsonschema==4.26.0
           PATH="$RUNNER_TEMP/venv/bin:$PATH" tests/repos-janitor/run.sh
 
+      - name: Run the tests of the release cleanup's referenced tags
+        run: tests/referenced-tags/run.sh
+
   test-check-remote-config:
     runs-on: ubuntu-latest
     steps:
@@ -161,26 +164,25 @@ jobs:
           folder: tests/check-remote-config/cases/good/remote-config
           platforms: darwin-arm64 linux-x86-64
 
-      - name: Check a config naming a pre-release, allowed by default
+      - name: Check a dev config naming a pre-release, allowed there
         uses: ./actions/check-remote-config
         with:
           folder: tests/check-remote-config/cases/prerelease/remote-config
           platforms: darwin-arm64
 
-      - name: Check it again, requiring stable releases
+      - name: Check a prod config naming a pre-release
         id: prerelease
         continue-on-error: true
         uses: ./actions/check-remote-config
         with:
-          folder: tests/check-remote-config/cases/prerelease/remote-config
+          folder: tests/check-remote-config/cases/prod-only-prerelease/remote-config
           platforms: darwin-arm64
-          require-stable: "true"
 
       - name: Assert that the pre-release was refused
         uses: ./actions/assert-step-failed
         with:
           outcome: ${{ steps.prerelease.outcome }}
-          error-message: "A config naming a pre-release passed the check"
+          error-message: "A prod config naming a pre-release passed the check"
 
 
   # -- Test action scan-files-for-viruses
@@ -303,7 +305,7 @@ jobs:
             cut -d: -f1 > order.txt
           [ "$(sort -n order.txt | tr '\n' ' ')" = "$(cat order.txt | tr '\n' ' ')" ] && [ "$(wc -l < order.txt)" -eq 7 ]
           source actions/release-policy.sh
-          grep -q "Only the $PRERELEASE_KEEP newest are kept" body.md
+          grep -q "The $PRERELEASE_KEEP newest are kept, and older ones while an Open Logix remote config names them" body.md
           grep -q -- "- A repo-specific bullet." body.md
           grep -q "$(sha256sum asset.txt | cut -c1-64)  asset.txt" body.md
           # The tag names the commit that was built.

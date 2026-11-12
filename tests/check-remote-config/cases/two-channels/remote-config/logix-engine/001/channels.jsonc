@@ -1,0 +1,9 @@
+{
+  "$schema": "https://www.openlogix.org/schemas/logix-channels-v1.json",
+  "prod": [
+    "2026-11-20"
+  ],
+  "beta": [
+    "2026-11-20"
+  ]
+}

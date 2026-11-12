@@ -1,0 +1,18 @@
+// What Logix Engine on config 001 uses.
+{
+  "$schema": "https://www.openlogix.org/schemas/logix-remote-config-v1.json",
+
+  /* The FPGA tools. */
+  "logix-core": {
+    "repo": "openlogix/logix-core",
+    "release": "2026-11-11",
+    "file": "logix-core-${PLATFORM}-${YYYYMMDD}.tgz"
+  },
+
+  // Adds the Tang Nano 20K's PMOD pins.
+  "logix-catalog": {
+    "repo": "openlogix/logix-catalog",
+    "release": "2026-11-24",
+    "file": "logix-catalog-${YYYYMMDD}.tgz"
+  }
+}

@@ -41,7 +41,7 @@ Composite actions in [actions/](actions), and one reusable workflow, used from t
 | `publish-pre-release` | A release workflow's end: checksums, the standard release text, the day's pre-release made again from scratch, and the cleanup |
 | `check-platform` | Fails unless the runner has the given OS and architecture |
 | `scan-files-for-viruses` | Scans files, including inside archives, with ClamAV |
-| `check-remote-config` | Checks a repo's remote configs (`remote-config/<product>/config-NNN.jsonc`): the schema, and that every named release exists and has its files |
+| `check-remote-config` | Checks a repo's remote configs (`remote-config/<product>/<NNN>/`: `channels.jsonc` and a config file per channel): the schemas, the channels, and that every named release exists, has its files, and is stable in `prod.jsonc` |
 | `assert-step-failed` | Fails unless an earlier step failed, for testing expected failures |
 | [`publish-docs.yaml`](.github/workflows/publish-docs.yaml) (reusable workflow) | Builds a repo's MkDocs site and deploys it to its GitHub Pages |
 
@@ -51,7 +51,7 @@ The pre-release policy (pre-releases are kept about 5 days unless made stable) i
 
 ## repos-janitor
 
-[repos-janitor.yaml](.github/workflows/repos-janitor.yaml) checks across the Open Logix repos every 6 hours what no single repo's CI can see: remote configs on `main`, pre-releases they name that are about to expire, stale pins, releases rebuilt under the same tag, the website's schema copies, every repo's daily runs, that the releases configs name, and each repo's Latest, have their `SHA256SUMS` and `BUILD-INFO.json`, that a dependency's Latest is the release the configs recommend, and that each repo has one type topic (installable, dependency or no releases) and follows its policy. Its run summary lists the problems, with links to where each is fixed, then everything it checked, passed items included; the run, and its badge above, go red on any failure. It only reads, and only reports for now.
+[repos-janitor.yaml](.github/workflows/repos-janitor.yaml) checks across the Open Logix repos every 6 hours what no single repo's CI can see: remote configs on `main`, stale pins, releases rebuilt under the same tag, the website's schema copies, every repo's daily runs, that the releases configs name, and each repo's Latest, have their `SHA256SUMS` and `BUILD-INFO.json`, that a dependency's Latest is the release the configs recommend, and that each repo has one type topic (installable, dependency or no releases) and follows its policy. Its run summary lists the problems, with links to where each is fixed, then everything it checked, passed items included; the run, and its badge above, go red on any failure. It only reads, and only reports for now.
 
 ## Versions
 

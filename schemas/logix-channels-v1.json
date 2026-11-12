@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.openlogix.org/schemas/logix-channels-v1.json",
+  "title": "Open Logix release channels",
+  "description": "Which of a component's releases are on which channel, for one config version: remote-config/<product>/<NNN>/channels.jsonc (Remote updates, in the website repo's CLAUDE.md). A release reads <channel>.jsonc in the same folder (prod.jsonc when there's none for its channel). A release on no list is on dev, the default, so dev is never listed. prod is what users get; its releases must be stable. Release tags only, no ranges; each release on at most one channel. The file is JSONC: comments say why each release was added.",
+  "type": "object",
+  "required": ["$schema"],
+  "properties": {
+    "$schema": {
+      "const": "https://www.openlogix.org/schemas/logix-channels-v1.json"
+    }
+  },
+  "patternProperties": {
+    "^(?!dev$)[a-z][a-z0-9-]*$": {
+      "description": "A channel, such as prod, and its releases.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "description": "A release tag of this component, yyyy-mm-dd.",
+        "type": "string",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+      }
+    }
+  },
+  "additionalProperties": false
+}

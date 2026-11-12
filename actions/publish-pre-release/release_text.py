@@ -42,8 +42,9 @@ def policy_keep() -> int:
 
 def about(extra: list[str]) -> str:
     keep = policy_keep()
-    bullets = [f"These are pre-releases: development builds, made daily. Only the {keep} newest "
-               f"are kept, so each one is deleted after about {keep} days, unless it's made stable."]
+    bullets = [f"These are pre-releases: development builds, made daily. The {keep} newest are kept, "
+               f"and older ones while an Open Logix remote config names them; the rest are deleted. "
+               f"Stable releases are never deleted."]
     bullets += extra
     bullets.append("To make a pre-release stable, edit it and change its status from "
                    "`Pre-release` to `None`.")

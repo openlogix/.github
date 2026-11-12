@@ -22,20 +22,23 @@ fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
   "# ❌ repos-janitor" \
-  "**8 failures · 5 warnings · 21 passed**, in 7 repos (2026-11-14 03:00 UTC)." \
+  "**9 failures · 4 warnings · 29 passed**, in 8 repos (2026-11-14 03:00 UTC)." \
   "## ❌ Failures" \
   "## ⚠️ Warnings" \
   "## ✅ Passed" \
   "### logix-ide" \
   "<details><summary><b>logix-core</b>:" \
-  "[the release, to make it stable](https://github.com/openlogix/logix-engine/releases/tag/2026-11-10)" \
-  "[the config, to repin](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/config-001.jsonc)" \
+  "[the file](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc)" \
+  "[the config, to repin](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc)" \
   "[the run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
-  "<br><sub>Why: Named by \`logix-ide\`'s \`config-001.jsonc\`; installed products download it.</sub>" \
-  "- **remote configs**: \`remote-config/logix-ide/config-001.jsonc\` is valid" \
+  "<br><sub>Why: Named by \`logix-ide\`'s \`001/dev.jsonc\`; installed products download it.</sub>" \
+  "- **remote configs**: \`001/dev.jsonc\` is valid, and every release and file it names exists" \
+  "- **remote configs**: \`001/channels.jsonc\` is valid" \
+  "- **remote configs**: \`001/dev.jsonc\`: logix-catalog: no release 2026-11-30" \
   "- **schema copies**: \`docs/schemas/logix-board-v1.json\` equals \`logix-catalog\`'s \`schemas/logix-board-v1.json\`" \
-  "- **latest release**: no release is marked Latest yet" \
-  "- **latest release**: \`2026-11-01\` is marked Latest, the release recommended to people who install it" \
+  "- **latest release**: no release is marked Latest yet: no release is prod" \
+  "- **latest release**: \`2026-11-01\` is marked Latest, a prod release" \
+  "- **latest release**: \`2026-11-02\` is marked Latest, but it's on dev: Latest must be a prod release" \
   "- **latest release**: \`2026-11-05\` is marked Latest, but no recommended install uses a release of it" \
   "- **latest release**: \`2026-11-03\` is marked Latest, the newest release the recommended installs use" \
   "Used: \`2026-11-03\` by \`logix-engine\` \`2026-11-01\` (Latest) → \`logix-core\` \`2026-11-03\`." \

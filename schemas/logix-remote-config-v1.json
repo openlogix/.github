@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://www.openlogix.org/schemas/logix-remote-config-v1.json",
   "title": "Open Logix remote config",
-  "description": "What one Open Logix component uses: one entry per direct dependency, naming a GitHub release and its file. A component reads remote-config/<product>/config-NNN.jsonc from its own repo, by the config version it hard-codes (Remote updates, in the website repo's CLAUDE.md). The file is JSONC: comments say why each entry changed.",
+  "description": "What one Open Logix component uses: one entry per direct dependency, naming a GitHub release and its file. A component reads remote-config/<product>/<NNN>/<channel>.jsonc from its own repo, by the config version it hard-codes and its channel (Remote updates, in the website repo's CLAUDE.md). The file is JSONC: comments say why each entry changed.",
   "type": "object",
   "required": ["$schema"],
   "properties": {
@@ -27,7 +27,7 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$"
         },
         "release": {
-          "description": "The release tag, yyyy-mm-dd. Pre-releases are allowed while Open Logix is in development; stable releases will be required later.",
+          "description": "The release tag, yyyy-mm-dd. A prod config (prod.jsonc) names only stable releases; other channels may name pre-releases.",
           "type": "string",
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
         },

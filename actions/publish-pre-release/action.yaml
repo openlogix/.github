@@ -86,6 +86,10 @@ runs:
       run: |
         set -euo pipefail
         source "${{ github.action_path }}/../release-policy.sh"
+        # Never deleted: pre-releases a remote config on main names, in any
+        # Open Logix repo (Remote updates, Release cleanup).
+        mapfile -t named < <(python3 "${{ github.action_path }}/referenced_tags.py" "$GH_REPO")
+        echo "*** Named by remote configs: ${named[*]:-(none)}"
         mapfile -t tags < <(
           gh release list --limit 1000 --json tagName,isPrerelease,isDraft,publishedAt \
             --jq '[.[] | select(.isPrerelease == true and .isDraft == false)]
@@ -94,6 +98,8 @@ runs:
         for ((i = 0; i < ${#tags[@]}; i++)); do
           if (( i < PRERELEASE_KEEP )); then
             echo "*** Keeping pre-release ${tags[i]}"
+          elif printf '%s\n' "${named[@]}" | grep -qxF -- "${tags[i]}"; then
+            echo "*** Keeping pre-release ${tags[i]}: a remote config names it"
           else
             echo "*** Deleting pre-release ${tags[i]}"
             gh release delete "${tags[i]}" --cleanup-tag --yes

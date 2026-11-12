@@ -31,8 +31,6 @@ ORG = "openlogix"
 # The platforms remote configs must serve. Add windows-x86-64 and
 # linux-x86-64 with Milestones 3 and 4.
 PLATFORMS = ["darwin-arm64"]
-# Warn when a named pre-release is deleted within this many days.
-EXPIRY_WARN_DAYS = 2
 # Warn when a named release is this many days older than the newest one.
 STALE_DAYS = 7
 RUN_WHY = "It runs daily to catch breakage even without a push; the repo's status badge shows it."
@@ -43,7 +41,9 @@ SCHEMA_WHY = "Files outside the site name it by its www.openlogix.org URL, so it
 # The repos whose schemas/ own the website's docs/schemas/ copies.
 SCHEMA_OWNERS = ["logix-catalog", ".github"]
 CONFIG_WHY = "Every installed product on this config version reads it from `main`."
-CONFIG = re.compile(r"^remote-config/[^/]+/config-[0-9]{3}\.jsonc$")
+# A version folder's files: channels.jsonc and a config file per channel.
+CONFIG_FILE = re.compile(r"^remote-config/[^/]+/[^/]+/[^/]+$")
+CHANNEL_CONFIG = re.compile(r"^remote-config/[^/]+/[0-9]{3}/(?!channels\.jsonc$)[a-z][a-z0-9-]*\.jsonc$")
 WORKFLOW = re.compile(r"^\.github/workflows/[^/]+\.ya?ml$")
 # Repo types (the website repo's CLAUDE.md, Repo types): one GitHub topic
 # per repo.
@@ -61,12 +61,6 @@ def now() -> dt.datetime:
     if value:
         return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
     return dt.datetime.now(dt.timezone.utc)
-
-
-def keep_count() -> int:
-    """PRERELEASE_KEEP from the shared release policy."""
-    text = (ROOT / "actions" / "release-policy.sh").read_text()
-    return int(re.search(r"^PRERELEASE_KEEP=([0-9]+)", text, re.M).group(1))
 
 
 def gh(*args: str) -> tuple[int, str]:
@@ -105,6 +99,12 @@ def sums(repo: str, tag: str) -> dict[str, str] | None:
         if len(parts) == 2:
             result[parts[1].lstrip("*")] = parts[0].lower()
     return result
+
+
+def config_name(path: str) -> str:
+    """A config file as the report names it: its version folder and name,
+    such as 001/dev.jsonc."""
+    return "/".join(path.split("/")[-2:])
 
 
 def short(repo: str) -> str:
@@ -182,8 +182,8 @@ class Repo:
 
 def check_configs(repo: Repo, report: Report, platforms: list[str]) -> list[dict]:
     """Check 1: the repo's remote configs pass check-remote-config. Returns
-    their entries, for checks 2 to 4."""
-    paths = [p for p in repo.files if CONFIG.match(p)]
+    the entries of its channel config files, for checks 3 and 4."""
+    paths = [p for p in repo.files if CONFIG_FILE.match(p)]
     if not paths:
         return []
     entries = []
@@ -193,6 +193,8 @@ def check_configs(repo: Repo, report: Report, platforms: list[str]) -> list[dict
             dest = Path(tmp) / p
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(text)
+            if not CHANNEL_CONFIG.match(p):
+                continue
             try:
                 config = json.loads(strip_comments(text))
                 for name, dep in config.items():
@@ -205,7 +207,8 @@ def check_configs(repo: Repo, report: Report, platforms: list[str]) -> list[dict
                 sys.executable,
                 str(ROOT / "actions" / "check-remote-config" / "check_remote_config.py"),
                 "--folder", str(Path(tmp) / "remote-config"),
-                "--schema", str(ROOT / "schemas" / "logix-remote-config-v1.json"),
+                "--schemas", str(ROOT / "schemas"),
+                "--repo", repo.name,
                 "--platforms", " ".join(platforms),
                 "--owner", ORG,
             ],
@@ -218,8 +221,8 @@ def check_configs(repo: Repo, report: Report, platforms: list[str]) -> list[dict
         if m:
             where = (m.group(1) or "").split(tmp + "/", 1)[-1]
             bad.add(where)
-            links = [("the config", blob(repo.name, repo.branch, where))] if where in paths else []
-            report.add("fail", repo.name, "remote configs", f"`{where}`: {m.group(2)}" if where else m.group(2), links,
+            links = [("the file", blob(repo.name, repo.branch, where))] if where in paths else []
+            report.add("fail", repo.name, "remote configs", f"`{config_name(where)}`: {m.group(2)}" if where else m.group(2), links,
                        why=CONFIG_WHY)
     if r.returncode != 0 and not bad:
         report.add("fail", repo.name, "remote configs", f"`check-remote-config` failed: {(r.stdout + r.stderr).strip()[-300:]}",
@@ -227,8 +230,9 @@ def check_configs(repo: Repo, report: Report, platforms: list[str]) -> list[dict
         return entries
     for p in paths:
         if p not in bad and "" not in bad:
-            report.add("pass", repo.name, "remote configs", f"`{p}` is valid, and every release and file it names exists",
-                       [("the config", blob(repo.name, repo.branch, p))], why=CONFIG_WHY)
+            report.add("pass", repo.name, "remote configs", f"`{config_name(p)}` is valid"
+                       + (", and every release and file it names exists" if CHANNEL_CONFIG.match(p) else ""),
+                       [("the file", blob(repo.name, repo.branch, p))], why=CONFIG_WHY)
     return entries
 
 
@@ -238,13 +242,13 @@ def tag_date(tag: str) -> dt.date | None:
 
 def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: Report,
                platforms: list[str], state: dict, new_state: dict) -> None:
-    """Checks 2 (expiring pre-releases), 3 (stale pins) and 4 (rebuilt
-    releases) for each dependency a config names."""
-    keep = keep_count()
+    """Checks 3 (stale pins) and 4 (rebuilt releases) for each dependency a
+    config names. (Check 2, expiring pre-releases, is gone: a pre-release a
+    config on main names is never deleted.)"""
     for e in entries:
         dep = repos.get(e.get("repo", ""))
         tag = e.get("release", "")
-        where = f"`{e['config'].rsplit('/', 1)[-1]}` names `{e['name']}` `{tag}`, which"
+        where = f"`{config_name(e['config'])}` names `{e['name']}` `{tag}`, which"
         config_link = ("the config, to repin", blob(repo.name, repo.branch, e["config"]))
         named_by = "Installed products download what their remote config names."
         if dep is None:
@@ -252,18 +256,6 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
         named = next((r for r in dep.releases() if r["tag_name"] == tag), None)
         if named is None:
             continue  # Check 1 reports it.
-        if named["prerelease"]:
-            pre = sorted((r["tag_name"] for r in dep.releases() if r["prerelease"]), reverse=True)
-            left = keep - pre.index(tag)
-            links = [config_link, ("the release, to make it stable", release_page(dep.name, tag))]
-            if left <= EXPIRY_WARN_DAYS:
-                report.add("warn", repo.name, "expiring pre-releases",
-                           f"{where} is a pre-release deleted in about {left} day(s): repin it, or make the release stable", links, why=named_by)
-            else:
-                report.add("pass", repo.name, "expiring pre-releases", f"{where} is a pre-release kept about {left} more days", links, why=named_by)
-        else:
-            report.add("pass", repo.name, "expiring pre-releases", f"{where} is a stable release",
-                       [("the release", release_page(dep.name, tag))], why=named_by)
         dates = [d for d in (tag_date(r["tag_name"]) for r in dep.releases()) if d]
         named_date = tag_date(tag)
         if dates and named_date:
@@ -400,6 +392,23 @@ def check_type(repo: Repo, report: Report) -> None:
             report.add("pass", repo.name, "repo type", "it has no releases, as its type says", [], why=why)
 
 
+def release_channel(repo: Repo, tag: str) -> str | None:
+    """The channel a release of `repo` is on: from the channels.jsonc of the
+    version folder its BUILD-INFO.json names (dev when unlisted); None when
+    that can't be told."""
+    text = release_file(repo.name, tag, "BUILD-INFO.json")
+    try:
+        info = json.loads(text) if text else {}
+    except ValueError:
+        return None
+    version, product = info.get("config-version"), info.get("package-name")
+    path = f"remote-config/{product}/{version}/channels.jsonc"
+    if not version or path not in repo.files:
+        return None
+    channels = json.loads(strip_comments(raw(repo.name, path, repo.branch)))
+    return next((c for c, tags in channels.items() if c != "$schema" and tag in tags), "dev")
+
+
 def reachable_releases(repos: dict[str, Repo], report: Report) -> dict[str, dict[str, list[str]]]:
     """The dependency releases the recommended installs use (the website
     repo's CLAUDE.md, Repo types): from each installable repo's Latest, the
@@ -425,7 +434,7 @@ def reachable_releases(repos: dict[str, Repo], report: Report) -> dict[str, dict
                        [("the release", release_page(repo.name, tag))],
                        why="A dependency's Latest follows the releases the recommended installs use.")
             return
-        path = f"remote-config/{product}/config-{version}.jsonc"
+        path = f"remote-config/{product}/{version}/prod.jsonc"
         if path not in repo.files:
             return  # A config version without a file: check 1 covers the repo's files.
         config = json.loads(strip_comments(raw(repo.name, path, repo.branch)))
@@ -462,12 +471,19 @@ def check_latest(repo: Repo, report: Report, reach: dict[str, dict[str, list[str
         why = "People are told to install the release marked Latest; for an installable it's independent of other products' configs."
         if latest is None:
             report.add("pass", repo.name, "latest release",
-                       "no release is marked Latest yet: every release is a pre-release (required once stable releases are)",
+                       "no release is marked Latest yet: no release is prod (Latest must be a prod release once there is one)",
                        [releases_link], why=why)
         else:
-            report.add("pass", repo.name, "latest release",
-                       f"`{latest}` is marked Latest, the release recommended to people who install it",
-                       [("the release", release_page(repo.name, latest))], why=why)
+            channel = release_channel(repo, latest)
+            link = [("the release", release_page(repo.name, latest))]
+            if channel == "prod":
+                report.add("pass", repo.name, "latest release",
+                           f"`{latest}` is marked Latest, a prod release, the one recommended to people who install it",
+                           link, why=why)
+            else:
+                report.add("fail", repo.name, "latest release",
+                           f"`{latest}` is marked Latest, but it's {'on ' + channel if channel else 'not known to be on prod (its BUILD-INFO.json or channels.jsonc is missing)'}: Latest must be a prod release; promote it, or mark a prod release Latest",
+                           link, why=f"{why} An installable's Latest must be prod.")
         return
     # Only releases that exist: one a config names but that's missing is
     # check 1's failure.
@@ -562,7 +578,7 @@ def main() -> int:
     for repo in sorted(repos.values(), key=lambda r: r.name):
         entries = check_configs(repo, report, PLATFORMS)
         for e in entries:
-            named.setdefault(f"{e.get('repo')}/{e.get('release')}", []).append(f"`{repo.short}`'s `{e['config'].rsplit('/', 1)[-1]}`")
+            named.setdefault(f"{e.get('repo')}/{e.get('release')}", []).append(f"`{repo.short}`'s `{config_name(e['config'])}`")
         check_pins(repo, entries, repos, report, PLATFORMS, state, new_state)
         check_runs(repo, report)
     reach = reachable_releases(repos, report)

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://www.openlogix.org/schemas/logix-remote-config-v1.json",
+  "logix-catalog": {
+    "repo": "openlogix/logix-catalog",
+    "release": "2026-11-12",
+    "file": "logix-catalog-${YYYYMMDD}.tgz"
+  }
+}
