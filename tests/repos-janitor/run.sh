@@ -37,12 +37,13 @@ for text in \
   "    - [Result] No release is prod yet, so none can be Latest." \
   "- Release should be Latest" \
   "    - [Why] Used by a recommended install: logix-engine [\`2026-11-01\`](https://github.com/openlogix/logix-engine/releases/tag/2026-11-01) (Latest) → [\`001/prod.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/prod.jsonc) → logix-core \`2026-11-03\`." \
-  "    - [Why] On the prod list of [\`001/channels.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/channels.jsonc): a prod release must be stable." \
+  "    - [Why] On the prod list of [\`001/channels.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/channels.jsonc)." \
   "- Latest should be used by a recommended install" \
   "- Dev config should not lag behind prod" \
-  "    - [Result] It's older than prod's \`2026-11-05\`: probably left over after a promotion. Delete \`001/dev.jsonc\` (dev then uses prod's), or repin it." \
+  "    - [Result] Older than prod's \`2026-11-05\`: delete \`001/dev.jsonc\`, or repin it." \
   "- Daily build should be recent" \
   "- Repo metadata should be valid" \
+  "    - [Why] A repo of the openlogix org." \
   "    - [Result] Its type is \`installable\`." \
   "    - [Result] There's no \`.github/logix-repo-metadata.jsonc\`." \
   "    - [Fix] [create the file](https://github.com/openlogix/openlogix.github.io/new/main?filename=.github/logix-repo-metadata.jsonc)" \

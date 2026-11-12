@@ -303,13 +303,11 @@ def check_configs(repo: Repo, report: Report) -> list[dict]:
     for p in paths:
         product, version, name = CONFIG_FILE.match(p).groups()
         if name == "channels.jsonc":
-            why = f"It lists which {product} releases are on which channel, for config {version}."
+            why = f"{product}'s release channels for config {version}."
         elif CHANNEL_CONFIG.match(p):
-            channel = name[: -len(".jsonc")]
-            why = (f"{product} releases on config {version} read it from `main`, on the {channel} channel"
-                   + (" and on every channel without a file of its own." if channel == "prod" else "."))
+            why = f"Read by {product} releases on config {version}, channel {name[: -len('.jsonc')]}."
         else:
-            why = f"It's in {product}'s remote config folder."
+            why = f"In {product}'s remote config folder."
         url = blob(repo.name, repo.branch, p)
         report.require(repo.name, "config-should-be-valid", p, f"[`{config_name(p)}`]({url})",
                        config_name(p), file=p).because(why).link("the file", url)
@@ -373,15 +371,13 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
                 repo.name, "dev-should-not-lag-behind-prod", f"{e['config']}|{e['name']}",
                 f"[`{cfg}`]({cfg_url}) → {e['name']} [`{tag}`]({release_page(dep.name, tag)})",
                 f"{cfg} → {e['name']} {tag}", config=cfg, dependency=e["name"], release_tag=tag)
-            inst.because(f"Dev releases download what [`{cfg}`]({cfg_url}) names; without it they'd use "
-                         f"[`{prod_cfg}`]({prod_url}), so dev should never be older than prod.")
+            inst.because(f"A dev config next to [`{prod_cfg}`]({prod_url}).")
             inst.link("the dev config, to repin or delete", cfg_url).link("the prod config", prod_url)
             if tag < prod["release"]:
-                inst.verdict(False, f"It's older than prod's `{prod['release']}`: probably left over after a promotion. "
-                                    f"Delete `{cfg}` (dev then uses prod's), or repin it.")
+                inst.verdict(False, f"Older than prod's `{prod['release']}`: delete `{cfg}`, or repin it.")
             else:
-                inst.verdict(True, "It's the same as prod's." if tag == prod["release"]
-                             else f"It's newer than prod's `{prod['release']}`.")
+                inst.verdict(True, "Same as prod's." if tag == prod["release"]
+                             else f"Newer than prod's `{prod['release']}`.")
 
 
 def check_releases(repos: dict[str, Repo], entries_by_repo: dict[str, list[dict]], report: Report) -> None:
@@ -400,15 +396,15 @@ def check_releases(repos: dict[str, Repo], entries_by_repo: dict[str, list[dict]
             req_release(dep, tag, report, "release-should-be-valid").because(named + ".")
             if cfg.endswith("/prod.jsonc"):
                 req_release(dep, tag, report, "release-should-be-stable").because(
-                    named + ": a prod config names only stable releases.")
+                    named + ".")
         for tag, version in repo.prod_tags().items():
             listed = f"On the prod list of [`{version}/channels.jsonc`]({blob(repo.name, repo.branch, repo.channels_path(version))})"
-            req_release(repo, tag, report, "release-should-be-stable").because(listed + ": a prod release must be stable.")
+            req_release(repo, tag, report, "release-should-be-stable").because(listed + ".")
             req_release(repo, tag, report, "release-should-be-valid").because(listed + ".")
         latest = repo.latest()
         if latest:
             req_release(repo, latest, report, "release-should-be-valid").because(
-                "Marked Latest: the release people are told to download.")
+                "Marked Latest.")
     for inst in list(report.instances.values()):
         if inst.passed is not None or inst.req not in ("release-should-be-valid", "release-should-be-stable"):
             continue
@@ -492,13 +488,13 @@ def check_latest(repo: Repo, reach: dict, report: Report) -> None:
         prod = repo.prod_tags()
         if latest is None:
             inst = report.require(repo.name, "latest-should-be-prod", "(none)", "no release is Latest", "no release is Latest")
-            inst.because("People are told to install the release marked Latest; it must be a prod release once there is one.")
+            inst.because("An installable repo with releases.")
             inst.link("the releases", releases_page(repo.name))
             inst.verdict(not prod, "No release is prod yet, so none can be Latest." if not prod
                          else f"Prod releases exist ({', '.join(f'`{t}`' for t in sorted(prod))}): mark the newest one Latest.")
             return
         inst = req_release(repo, latest, report, "latest-should-be-prod")
-        inst.because("Marked Latest: the release people are told to install, which must be a prod release.")
+        inst.because("Marked Latest.")
         channel = release_channel(repo, latest)
         if channel == "prod":
             inst.verdict(True, "It's on the prod list of its version's `channels.jsonc`.")
@@ -508,7 +504,7 @@ def check_latest(repo: Repo, reach: dict, report: Report) -> None:
         if prod:
             newest = max(prod)
             rel = req_release(repo, newest, report, "release-should-be-latest")
-            rel.because("The newest prod release: the one people should install.")
+            rel.because("The newest prod release.")
             rel.verdict(latest == newest, "The release is Latest." if latest == newest
                         else f"Latest is `{latest}`: mark this one Latest.")
         return
@@ -517,10 +513,8 @@ def check_latest(repo: Repo, reach: dict, report: Report) -> None:
     if not uses:
         if latest:
             inst = req_release(repo, latest, report, "latest-should-be-used")
-            inst.because("Marked Latest. A dependency's Latest is the newest release the recommended installs "
-                         "(the installables' Latest) use.")
-            inst.verdict(False, "No recommended install uses a release of this dependency, "
-                                "so Latest sends people to a release no product uses.")
+            inst.because("Marked Latest.")
+            inst.verdict(False, "No recommended install uses this dependency.")
         return
     target = max(uses)
     inst = req_release(repo, target, report, "release-should-be-latest")
@@ -528,7 +522,7 @@ def check_latest(repo: Repo, reach: dict, report: Report) -> None:
         inst.because(f"Used by a recommended install: {path}.")
     others = [f"`{t}`" for t in sorted(uses) if t != target]
     if others:
-        inst.because(f"The newest of the releases the recommended installs use (also {', '.join(others)}).")
+        inst.because(f"Newer than the others recommended installs use ({', '.join(others)}).")
     rel = repo.release(target)
     if latest == target:
         inst.verdict(True, "The release is Latest.")
@@ -550,12 +544,12 @@ def check_schemas(repos: dict[str, Repo], report: Report) -> None:
                       if f"{ORG}/{o}" in repos and f"schemas/{name}" in repos[f"{ORG}/{o}"].files), None)
         copy = blob(site.name, site.branch, path)
         inst = report.require(site.name, "schema-copy-should-match", path, f"[`{path}`]({copy})", path, file=path)
-        inst.because("Files outside the site name it by its www.openlogix.org URL.").link("the copy", copy)
+        inst.because("A schema copy on the website.").link("the copy", copy)
         if owner is None:
             inst.verdict(False, f"No owner has `schemas/{name}` ({', '.join(SCHEMA_OWNERS)}).")
             continue
         original = blob(owner.name, owner.branch, f"schemas/{name}")
-        inst.because(f"It's a copy of {owner.short}'s [`schemas/{name}`]({original}).").link("the owner's file", original)
+        inst.because(f"Its owner: {owner.short} [`schemas/{name}`]({original}).").link("the owner's file", original)
         same = raw(site.name, path, site.branch) == raw(owner.name, f"schemas/{name}", owner.branch)
         inst.verdict(same, "Equal to its owner's file." if same else "It differs from its owner's file: copy it again.")
 
@@ -572,7 +566,7 @@ def check_runs(repo: Repo, report: Report) -> None:
         runs = api(f"repos/{repo.name}/actions/workflows/{file}/runs?branch={repo.branch}&event=schedule&status=completed&per_page=1")
         run = runs["workflow_runs"][0] if runs and runs.get("workflow_runs") else None
         wf = f"https://github.com/{repo.name}/actions/workflows/{file}"
-        why = "It runs daily, to catch breakage even without a push; the repo's status badge shows it."
+        why = "A scheduled workflow."
         ok = report.require(repo.name, "daily-build-should-pass", file, f"[`{file}`]({wf})", file, workflow=file)
         recent = report.require(repo.name, "daily-build-should-be-recent", file, f"[`{file}`]({wf})", file, workflow=file)
         for inst in (ok, recent):
@@ -598,8 +592,7 @@ def check_tags(repo: Repo, report: Report) -> None:
     page = releases_page(repo.name)
     inst = report.require(repo.name, "release-tag-should-be-a-date", repo.name, f"[{repo.name} releases]({page})",
                           f"{repo.name} releases")
-    inst.because("Every Open Logix release is tagged with its date, `yyyy-mm-dd` "
-                 "(the website repo's CLAUDE.md, Versions and tags); the other checks see only those.")
+    inst.because("An openlogix repo with releases.")
     inst.link("the releases", page)
     bad = [r["tag_name"] for r in repo.all_releases() if not DATE_TAG.match(r["tag_name"])]
     for tag in bad:
@@ -614,9 +607,7 @@ def check_type(repo: Repo, report: Report) -> None:
     file_url = blob(repo.name, repo.branch, METADATA)
     inst = report.require(repo.name, "repo-metadata-should-be-valid", repo.name,
                           f"[`{METADATA}`]({file_url})", METADATA, file=METADATA)
-    inst.because(f"Each Open Logix repo declares its type in `{METADATA}`: `installable` (people install it), "
-                 "`dependency` (programs download it) or `no-releases` (it's only read). The type decides its "
-                 f"release policy ([Repo types]({POLICY_URL})).")
+    inst.because("A repo of the openlogix org.")
     if METADATA in repo.files:
         inst.link("the file", file_url)
     else:
@@ -627,8 +618,7 @@ def check_type(repo: Repo, report: Report) -> None:
     inst.verdict(True, f"Its type is `{repo.type}`.")
     if repo.type == "no-releases":
         nr = report.require(repo.name, "repo-should-have-no-releases", repo.name, f"[{repo.name}]({page})", repo.name)
-        nr.because(f"Its type is `no-releases` ([`{METADATA}`]({file_url})): it's only read, never downloaded "
-                   f"([Repo types]({POLICY_URL})).").link("the releases", releases_page(repo.name))
+        nr.because(f"Its type is `no-releases` ([`{METADATA}`]({file_url})).").link("the releases", releases_page(repo.name))
         tags = [r["tag_name"] for r in repo.all_releases()]
         nr.verdict(not tags, "It has no releases." if not tags
                    else f"It has releases: {', '.join(f'`{t}`' for t in tags)}. Delete them, or change the type.")
