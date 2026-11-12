@@ -13,4 +13,4 @@
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-other-v1.json: No owner file schemas/logix-other-v1.json.
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-remote-config-v1.json: Differs.
 ::error title=Repo metadata should be valid (openlogix/openlogix.github.io)::.github/logix-repo-metadata.jsonc: Missing.
-repos-janitor: 8 repos, 15 errors, 36 passed.
+repos-janitor: 8 repos, 15 failed, 36 passed.

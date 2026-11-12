@@ -636,12 +636,12 @@ def ordered(instances: list[Instance]) -> list[Instance]:
 
 
 def write_summary(report: Report, checked: int, path: str, results_json: str) -> None:
-    """The run's summary page: one status line, then the errors by
+    """The run's summary page: one status line, then what failed, by
     repo and requirement, each subject with its [Why], [Result] and [Fix]
     links; then what passed, folded per repo; then the JSON results."""
     errors, passed = report.failed(), report.passed()
     mark = "❌" if errors else "✅"
-    lines = [f"{mark}&nbsp;&nbsp; **{plural(len(errors), 'error')}, "
+    lines = [f"{mark}&nbsp;&nbsp; **{len(errors)} failed, "
              f"{len(passed)} passed** · {checked} repos · {now().strftime('%Y-%m-%d %H:%M')} UTC"]
 
     def block(instances: list[Instance]) -> list[str]:
@@ -658,7 +658,7 @@ def write_summary(report: Report, checked: int, path: str, results_json: str) ->
         return out
 
     if errors:
-        lines += ["", "<br>", "", "### Errors"]
+        lines += ["", "<br>", "", "### Failed"]
         for repo in sorted({i.repo for i in errors}):
             lines += ["", f"**{repo}**"] + block([i for i in errors if i.repo == repo])
     lines += ["", "<br>", "", "### Passed"]
@@ -710,7 +710,7 @@ def main() -> int:
     Path(args.results).write_text(res + "\n")
     for i in ordered(report.failed()):
         print(f"::error title={REQUIREMENTS[i.req]} ({i.repo})::{plain(i.subject)}: {plain(' '.join(i.result))}")
-    print(f"repos-janitor: {len(repos)} repos, {plural(len(report.failed()), 'error')}, {len(report.passed())} passed.")
+    print(f"repos-janitor: {len(repos)} repos, {len(report.failed())} failed, {len(report.passed())} passed.")
     write_summary(report, len(repos), args.summary, res)
     return 1 if report.failed() else 0
 
