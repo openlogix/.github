@@ -1,0 +1,54 @@
+name: "List Config Channels"
+description: >-
+  Lists the channels a product's tests run on: one per config file in its
+  newest remote config version folder, remote-config/<product>/<NNN>/
+  (prod.jsonc, dev.jsonc and so on; not channels.jsonc), as a JSON array
+  for a job matrix, such as ["dev","prod"] (Remote updates, Channels, in the
+  website repo's CLAUDE.md: tests run once per config file). Fails without a
+  version folder or a config file. Needs a checkout.
+inputs:
+  product:
+    description: "The product's package name, its folder in remote-config, such as logix-engine."
+    required: true
+  folder:
+    description: "The remote-config folder, relative to the workspace."
+    required: false
+    default: remote-config
+outputs:
+  channels:
+    description: "The channels, as a JSON array sorted by name, such as [\"dev\",\"prod\"]."
+    value: ${{ steps.list.outputs.channels }}
+  version-folder:
+    description: "The newest version folder, such as remote-config/logix-engine/001."
+    value: ${{ steps.list.outputs.version-folder }}
+runs:
+  using: "composite"
+  steps:
+    - name: List the channels
+      id: list
+      shell: bash
+      env:
+        FOLDER: ${{ inputs.folder }}
+        PRODUCT: ${{ inputs.product }}
+      run: |
+        set -euo pipefail
+        version="$(find "$FOLDER/$PRODUCT" -mindepth 1 -maxdepth 1 -type d -name '[0-9][0-9][0-9]' 2>/dev/null | sort | tail -1)"
+        if [[ -z "$version" ]]; then
+          echo "::error::No version folder in $FOLDER/$PRODUCT (such as $FOLDER/$PRODUCT/001)."
+          exit 1
+        fi
+        channels=()
+        for f in "$version"/*.jsonc; do
+          [[ -e "$f" ]] || continue
+          name="$(basename "$f" .jsonc)"
+          [[ "$name" == channels ]] && continue
+          channels+=("$name")
+        done
+        if [[ ${#channels[@]} -eq 0 ]]; then
+          echo "::error::No config file in $version (such as prod.jsonc)."
+          exit 1
+        fi
+        json="$(printf '%s\n' "${channels[@]}" | sort | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().split(), separators=(",", ":")))')"
+        echo "Channels in $version: $json"
+        echo "channels=$json" >> "$GITHUB_OUTPUT"
+        echo "version-folder=$version" >> "$GITHUB_OUTPUT"

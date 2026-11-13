@@ -92,6 +92,52 @@ jobs:
           [ ! -e _build-info ]
 
   # -- Test action check-platform
+  # -- list-config-channels: one channel per config file, sorted, without
+  # -- channels.jsonc, from the newest version folder; fails without one.
+  test-list-config-channels:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v7
+
+      - name: Make fixture configs
+        run: |
+          mkdir -p fixture/logix-x/001 fixture/logix-x/002 fixture/logix-y/001
+          touch fixture/logix-x/001/channels.jsonc fixture/logix-x/001/prod.jsonc
+          touch fixture/logix-x/002/channels.jsonc fixture/logix-x/002/prod.jsonc fixture/logix-x/002/dev.jsonc
+          touch fixture/logix-y/001/channels.jsonc
+
+      - name: List the newest version folder's channels
+        id: list
+        uses: ./actions/list-config-channels
+        with:
+          folder: fixture
+          product: logix-x
+
+      - name: Check them
+        env:
+          CHANNELS: ${{ steps.list.outputs.channels }}
+          VERSION: ${{ steps.list.outputs.version-folder }}
+        run: |
+          [[ "$CHANNELS" == '["dev","prod"]' ]] || { echo "::error::channels: $CHANNELS"; exit 1; }
+          [[ "$VERSION" == fixture/logix-x/002 ]] || { echo "::error::version folder: $VERSION"; exit 1; }
+
+      # NOTE: Having this step failing is the expected and normal behavior.
+      - name: List a folder with no config file
+        id: no-config
+        continue-on-error: true
+        uses: ./actions/list-config-channels
+        with:
+          folder: fixture
+          product: logix-y
+
+      - name: Assert that previous step failed
+        uses: ./actions/assert-step-failed
+        with:
+          outcome: ${{ steps.no-config.outcome }}
+          error-message: "Listing a version folder without config files did not fail"
+
   test-check-platform:
     runs-on: ubuntu-latest
 
