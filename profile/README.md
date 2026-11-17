@@ -7,7 +7,7 @@
 
 [![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)](#license)
 
-<img src="https://www.openlogix.org/brand/readme/macos.svg" height="40" alt="macOS (Apple Silicon)" title="macOS (Apple Silicon)"> <img src="https://www.openlogix.org/brand/readme/windows.svg" height="40" alt="Windows (x64)" title="Windows (x64)">
+<img src="https://www.openlogix.org/brand/readme/macos.svg" height="40" alt="macOS (Apple Silicon)" title="macOS (Apple Silicon)"> <img src="https://www.openlogix.org/brand/readme/windows.svg" height="40" alt="Windows (x64)" title="Windows (x64)"> <img src="https://www.openlogix.org/brand/readme/linux.svg" height="40" alt="Linux (x64)" title="Linux (x64)">
 
 [![engine-test](https://img.shields.io/github/actions/workflow/status/openlogix/logix-engine/test.yaml?branch=main&label=engine-test)](https://github.com/openlogix/logix-engine/actions/workflows/test.yaml)
 [![engine-build](https://img.shields.io/github/actions/workflow/status/openlogix/logix-engine/build-pre-release.yaml?branch=main&label=engine-build)](https://github.com/openlogix/logix-engine/actions/workflows/build-pre-release.yaml)
