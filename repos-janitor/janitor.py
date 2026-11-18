@@ -904,6 +904,9 @@ def check_org_lists(repo: Repo, repos: dict[str, Repo], report: Report) -> None:
     if shared is not None:
         inst.link("org page", blob(shared.name, shared.branch, "profile/README.md"))
         text = raw(shared.name, "profile/README.md", shared.branch) if "profile/README.md" in shared.files else ""
+        # The table writes names with non-breaking hyphens (U+2011), so they
+        # don't wrap; for matching, they're hyphens.
+        text = text.replace("\u2011", "-")
         row = next((line for line in text.splitlines() if line.startswith(f"| [{repo.short}]({page}) |")), None)
         about = (repo.info.get("description") or "").strip()
         if row is None:
