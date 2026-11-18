@@ -38,7 +38,7 @@ Easy-to-use open source tools for FPGA design. All built on one engine. [www.ope
 
 | Repo | What it is | Status |
 | --- | --- | --- |
-| [logix‑catalog](https://github.com/openlogix/logix-catalog) | Logix Catalog. Every FPGA board, described once. Open board data for every Open Logix tool and any other project. | Live |
+| [logix‑catalog](https://github.com/openlogix/logix-catalog) | Logix Catalog. Every FPGA board, described once. Open board data for every Open Logix tool and any other project, intended to be read through Logix Engine. | Live |
 | [logix‑core](https://github.com/openlogix/logix-core) | The FPGA tools Logix Engine downloads, packaged from their upstream releases. Not for use on its own: only through Logix Engine; its content may change at any time. | Live |
 
 ### Website and shared files
