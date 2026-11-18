@@ -319,6 +319,7 @@ jobs:
       - name: Publish release a
         uses: ./actions/publish-pre-release
         with:
+          event: push
           title: "Test: A test release."
           links: "[Main page](https://www.openlogix.org/)"
           engine-note: core
@@ -352,6 +353,7 @@ jobs:
       - name: Publish release a again, from scratch
         uses: ./actions/publish-pre-release
         with:
+          event: push
           title: "Test: A test release."
           content-file: content.md
           files: asset.txt
@@ -363,6 +365,25 @@ jobs:
           ! grep -q "Our own content, first." body.md
           [ "$(gh release list --json tagName --jq '[.[] | select(.tagName == "a")] | length')" = 1 ]
 
+      # The daily build publishes only on a day without a release: it
+      # leaves release a as it is.
+      - name: Change the content again
+        run: echo "Our own content, third." > content.md
+
+      - name: Publish release a from the daily build
+        uses: ./actions/publish-pre-release
+        with:
+          event: schedule
+          title: "Test: A test release."
+          content-file: content.md
+          files: asset.txt
+
+      - name: Check release a was kept
+        run: |
+          gh release view a --json body --jq .body > body.md
+          grep -q "Our own content, second." body.md
+          ! grep -q "Our own content, third." body.md
+
       - name: Make a stable release, stable
         run: |
           gh release create stable --title stable --notes "Test" --latest=false
@@ -373,6 +394,7 @@ jobs:
         continue-on-error: true
         uses: ./actions/publish-pre-release
         with:
+          event: push
           title: "Test: A test release."
           files: asset.txt
 
@@ -384,6 +406,17 @@ jobs:
 
       - name: Check the stable release is still stable
         run: gh release view stable --json isPrerelease --jq '.isPrerelease == false' | grep -q true
+
+      - name: Publish over the stable release from the daily build
+        uses: ./actions/publish-pre-release
+        with:
+          event: schedule
+          title: "Test: A test release."
+          files: asset.txt
+
+      - name: Check the daily build left the stable release
+        run: |
+          gh release view stable --json isPrerelease,body --jq '.isPrerelease == false and .body == "Test"' | grep -q true
 
       # The cleanup keeps the newest pre-releases by the policy (this test
       # assumes 5), any a remote config names (p1, in the fixture org), and
@@ -399,6 +432,7 @@ jobs:
       - name: Publish release b, the newest
         uses: ./actions/publish-pre-release
         with:
+          event: push
           title: "Test: A test release."
           files: asset.txt
 
@@ -409,3 +443,16 @@ jobs:
           echo "Expected:"; cat expected.txt
           echo "Actual:"; cat actual.txt
           diff expected.txt actual.txt
+
+      - name: Make the files of release d, a day without a release
+        run: jq '."release-tag" = "d"' BUILD-INFO.json > b.json && mv b.json BUILD-INFO.json
+
+      - name: Publish release d from the daily build
+        uses: ./actions/publish-pre-release
+        with:
+          event: schedule
+          title: "Test: A test release."
+          files: asset.txt
+
+      - name: Check the daily build published release d
+        run: gh release view d --json isPrerelease --jq .isPrerelease | grep -q true

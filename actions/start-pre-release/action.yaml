@@ -3,7 +3,9 @@ description: >-
   The first job of an Open Logix build-pre-release workflow: today's release
   tag (yyyy-mm-dd) and package tag (yyyymmdd), a check that no stable
   release has that tag (a pre-release with it is replaced later, by
-  publish-pre-release), and BUILD-INFO.json, the build's description,
+  publish-pre-release; the daily build, on a day that already has a
+  release, builds and tests without publishing, so it doesn't stop), and
+  BUILD-INFO.json, the build's description,
   uploaded as the 'build-info' artifact for the other jobs (read-build-info)
   and shown as a table on the run's summary page.
   Sets RELEASE_TAG, PACKAGE_TAG, REPO, REPO_BRANCH and REPO_COMMIT in the
@@ -21,6 +23,10 @@ inputs:
     description: "Optional JSON object of more fields, placed after the description (such as {\"engine-version\": \"...\"})."
     required: false
     default: "{}"
+  event:
+    description: "The event that started the run (default: the workflow's). On 'schedule', the daily build, a stable release with today's tag isn't an error: publish-pre-release keeps the day's release."
+    required: false
+    default: ${{ github.event_name }}
 
 outputs:
   release-tag:
@@ -42,14 +48,21 @@ runs:
         PACKAGE_NAME: ${{ inputs.package-name }}
         DESCRIPTION: ${{ inputs.description }}
         EXTRA_FIELDS: ${{ inputs.extra-fields }}
+        EVENT: ${{ inputs.event }}
       run: |
         set -euo pipefail
         release_tag="$(date -u +%Y-%m-%d)"
         package_tag="${release_tag//-/}"
-        # A stable release is never replaced; a pre-release is, later.
+        # A stable release is never replaced; a pre-release is, later. The
+        # daily build doesn't replace the day's release at all (the user's
+        # rule, 2026-11-18), so it goes on and only builds and tests.
         if [[ "$(gh release view "$release_tag" --json isPrerelease --jq .isPrerelease 2>/dev/null || true)" == "false" ]]; then
-          echo "::error ::A stable release has the tag $release_tag. Aborting to protect it."
-          exit 1
+          if [[ "$EVENT" == schedule ]]; then
+            echo "::notice ::A stable release has the tag $release_tag: the daily build builds and tests, and doesn't publish."
+          else
+            echo "::error ::A stable release has the tag $release_tag. Aborting to protect it."
+            exit 1
+          fi
         fi
         repo="${{ github.repository }}"
         branch="${{ github.ref_name }}"

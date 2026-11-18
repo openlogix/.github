@@ -7,7 +7,11 @@ description: >-
   from scratch (the old release and its tag are deleted; the new tag names
   the commit that was built), uploads the files with BUILD-INFO.json and
   SHA256SUMS, and deletes old pre-releases by the policy in
-  release-policy.sh. Fails rather than replace a stable release. Needs
+  release-policy.sh. Fails rather than replace a stable release. The daily
+  build (event 'schedule') publishes only on a day without a release: when
+  the day already has one, it leaves it as it is (the user's rule,
+  2026-11-18: a pre-release someone tested stays the files they tested),
+  so that run only builds and tests. Needs
   BUILD-INFO.json in the working folder (read-build-info) and
   'contents: write'.
 
@@ -34,6 +38,10 @@ inputs:
   files:
     description: "The release's packages, one path per line; each gets a checksum. BUILD-INFO.json and SHA256SUMS are added."
     required: true
+  event:
+    description: "The event that started the run (default: the workflow's). On 'schedule', the daily build, a day that already has a release keeps it."
+    required: false
+    default: ${{ github.event_name }}
 
 runs:
   using: "composite"
@@ -50,16 +58,29 @@ runs:
       run: python3 "${{ github.action_path }}/release_text.py"
 
     - name: Replace the day's pre-release and publish
+      id: publish
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
         GH_REPO: ${{ github.repository }}
         FILES: ${{ inputs.files }}
+        EVENT: ${{ inputs.event }}
       run: |
         set -euo pipefail
         tag="$(jq -r '."release-tag"' BUILD-INFO.json)"
         commit="$(jq -r '."repo-commit"' BUILD-INFO.json)"
         state="$(gh release view "$tag" --json isPrerelease --jq .isPrerelease 2>/dev/null || true)"
+        url="https://github.com/${{ github.repository }}"
+        if [[ "$EVENT" == schedule && -n "$state" ]]; then
+          echo "::notice ::Not published: $tag already has a release. The daily build publishes only on a day without one."
+          {
+            echo "### Not published"
+            echo
+            echo "[$tag]($url/releases/tag/$tag) already has a release, which is kept: the daily build publishes only on a day without one. This run built and tested."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "published=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
         if [[ "$state" == "false" ]]; then
           echo "::error ::A stable release has the tag $tag. Aborting to protect it."
           exit 1
@@ -70,7 +91,7 @@ runs:
         mapfile -t files < <(printf '%s\n' "$FILES" | sed '/^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]]*$//')
         gh release create "$tag" "${files[@]}" BUILD-INFO.json SHA256SUMS \
           --prerelease --title "$tag" --notes-file RELEASE-BODY.md --target "$commit"
-        url="https://github.com/${{ github.repository }}"
+        echo "published=true" >> "$GITHUB_OUTPUT"
         {
           echo "### Pre-release $tag"
           echo
@@ -79,6 +100,7 @@ runs:
         } >> "$GITHUB_STEP_SUMMARY"
 
     - name: Delete old pre-releases
+      if: steps.publish.outputs.published == 'true'
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
