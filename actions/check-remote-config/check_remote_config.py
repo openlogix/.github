@@ -1,18 +1,24 @@
-"""Checks a repo's remote configs: remote-config/<product>/<NNN>/, a folder
-per config version, holding channels.jsonc and a config file per channel,
-<channel>.jsonc (Remote updates, in the website repo's CLAUDE.md).
+"""Checks a repo's remote configs: remote-config/<product>/ holds index.jsonc,
+listing its config version folders, and a folder per config version,
+<NNN>/, holding assign.jsonc and a config file per channel,
+<channel>-channel.jsonc (Remote updates, in the website repo's CLAUDE.md).
 
-Per version folder: channels.jsonc against its schema (logix-channels-v1),
-each release on at most one channel, and every release on the prod list a
-stable release of this repo (--repo); prod.jsonc when there's a prod
-release, else at least prod.jsonc or dev.jsonc; no config file for a
-channel that isn't prod, dev or a key of channels.jsonc. Per config file:
-its JSONC syntax, the schema (logix-remote-config-v1), and for each
-dependency: its repo's owner (when --owner is given), that its release
-exists (stable, in prod.jsonc; never a draft), that its file exists for
-every platform, and that the release's SHA256SUMS lists it. Every problem
-is reported, as a GitHub annotation, and the exit status is 1 if there
-were any.
+Per product: index.jsonc against its schema (logix-config-index-v1),
+listing exactly the version folders there. Per version folder: assign.jsonc
+against its schema (logix-assign-v1), each release on at most one channel,
+and every release on the prod list a stable release of this repo (--repo);
+prod-channel.jsonc when there's a prod release, else at least
+prod-channel.jsonc or dev-channel.jsonc; no config file for a channel that
+isn't prod, dev or a key of assign.jsonc. Per config file: its JSONC
+syntax, the schema (logix-remote-config-v1), and for each dependency: its
+repo's owner (when --owner is given), that its release exists (stable, in
+prod-channel.jsonc; never a draft), that its file exists for every
+platform, and that the release's SHA256SUMS lists it. Its latest, the
+component's own newest release on the channel: a release of this repo, the
+same checks (its file when it names one), and, for a channel with a list in
+assign.jsonc, the newest release on that list; required in
+prod-channel.jsonc when there are prod releases. Every problem is reported,
+as a GitHub annotation, and the exit status is 1 if there were any.
 
 Releases are read with the gh CLI: `gh api repos/<repo>/releases/tags/<tag>`
 and `gh release download <tag> -R <repo> -p SHA256SUMS -O -`.
@@ -27,10 +33,11 @@ from pathlib import Path
 
 import jsonschema
 
-VERSION = re.compile(r"^[0-9]{3}$")
+VERSION = re.compile(r"^[0-9]{3,}$")
 PRODUCT = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-CHANNEL_FILE = re.compile(r"^([a-z][a-z0-9-]*)\.jsonc$")
-CHANNELS = "channels.jsonc"
+CHANNEL_FILE = re.compile(r"^([a-z][a-z0-9-]*)-channel\.jsonc$")
+ASSIGN = "assign.jsonc"
+INDEX = "index.jsonc"
 
 
 def strip_comments(text: str) -> str:
@@ -77,7 +84,7 @@ def gh(*args: str) -> tuple[int, str]:
 def check_dependency(
     name: str, dep: dict, platforms: list[str], owner: str, require_stable: bool
 ) -> list[str]:
-    repo, tag, template = dep["repo"], dep["release"], dep["file"]
+    repo, tag, template = dep["repo"], dep["release"], dep.get("file")
     errors = []
     if owner and repo.split("/")[0] != owner:
         errors.append(f"{name}: {repo} isn't in {owner} (only allowed off main)")
@@ -89,6 +96,8 @@ def check_dependency(
         errors.append(f"{name}: {repo} {tag} is a draft")
     if require_stable and release.get("prerelease"):
         errors.append(f"{name}: {repo} {tag} is a pre-release; a prod config names only stable releases")
+    if not template:
+        return errors  # A latest without a file: nothing to download.
     assets = {a["name"] for a in release.get("assets", [])}
     files = sorted(
         {
@@ -127,7 +136,8 @@ def schema_errors(value, schema: dict) -> list[str]:
 
 
 def check_file(
-    path: Path, schema: dict, platforms: list[str], owner: str, require_stable: bool
+    path: Path, schema: dict, platforms: list[str], owner: str, channel: str,
+    assigned: dict[str, list[str]], repo: str,
 ) -> list[str]:
     config, error = read_jsonc(path)
     if error:
@@ -135,14 +145,32 @@ def check_file(
     errors = schema_errors(config, schema)
     if errors:
         return errors
-    for name, dep in config.items():
-        if name != "$schema":
-            errors += check_dependency(name, dep, platforms, owner, require_stable)
+    prod = channel == "prod"
+    for name, dep in config["dependencies"].items():
+        errors += check_dependency(name, dep, platforms, owner, prod)
+    latest = config.get("latest")
+    listed = assigned.get(channel, [])
+    if latest is None:
+        if prod and listed:
+            errors.append("latest is required: there are prod releases")
+        return errors
+    if latest["repo"] != repo:
+        errors.append(f"latest: {latest['repo']} isn't this repo, {repo}")
+        return errors
+    errors += check_dependency("latest", latest, platforms, owner, prod)
+    if listed and latest["release"] != max(listed):
+        errors.append(f"latest: {latest['release']} isn't the newest {channel} release in {ASSIGN}, {max(listed)}")
+    elif not listed and channel != "dev":
+        errors.append(f"latest: {channel} has no releases in {ASSIGN}")
+    elif channel == "dev":
+        on = next((c for c, tags in assigned.items() if latest["release"] in tags), None)
+        if on:
+            errors.append(f"latest: {latest['release']} is on {on} in {ASSIGN}, not dev")
     return errors
 
 
-def check_channels(path: Path, schema: dict, repo: str) -> tuple[dict, list[str]]:
-    """channels.jsonc: its schema, each release on at most one channel, and
+def check_assign(path: Path, schema: dict, repo: str) -> tuple[dict, list[str]]:
+    """assign.jsonc: its schema, each release on at most one channel, and
     every prod release a stable release of `repo`. Returns its channels."""
     channels, error = read_jsonc(path)
     if error:
@@ -166,18 +194,39 @@ def check_channels(path: Path, schema: dict, repo: str) -> tuple[dict, list[str]
     return channels, errors
 
 
+def check_index(path: Path, schema: dict, versions: list[str]) -> list[str]:
+    """index.jsonc: its schema, and that it lists exactly the version
+    folders there, oldest first."""
+    index, error = read_jsonc(path)
+    if error:
+        return [error]
+    errors = schema_errors(index, schema)
+    if errors:
+        return errors
+    listed = index["versions"]
+    have = sorted(versions, key=int)
+    if listed != have:
+        errors.append(f"versions {listed} should be the version folders, oldest first: {have}")
+    return errors
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--folder", required=True, help="the remote-config folder")
-    ap.add_argument("--schemas", required=True, help="the folder with logix-remote-config-v1.json and logix-channels-v1.json")
-    ap.add_argument("--repo", required=True, help="this repo, owner/name, whose releases the channels list")
+    ap.add_argument("--schemas", required=True, help="the folder with logix-remote-config-v1.json, logix-assign-v1.json and logix-config-index-v1.json")
+    ap.add_argument("--repo", required=True, help="this repo, owner/name, whose releases assign.jsonc and latest name")
     ap.add_argument("--platforms", required=True, help="space-separated, such as darwin-arm64")
     ap.add_argument("--owner", default="", help="the only owner repos may have; empty for any")
     args = ap.parse_args()
     folder = Path(args.folder)
     schemas = Path(args.schemas)
-    config_schema = json.loads((schemas / "logix-remote-config-v1.json").read_text(encoding="utf-8"))
-    channels_schema = json.loads((schemas / "logix-channels-v1.json").read_text(encoding="utf-8"))
+
+    def schema(name: str) -> dict:
+        return json.loads((schemas / name).read_text(encoding="utf-8"))
+
+    config_schema = schema("logix-remote-config-v1.json")
+    assign_schema = schema("logix-assign-v1.json")
+    index_schema = schema("logix-config-index-v1.json")
     platforms = args.platforms.split()
     if not platforms:
         print("::error::no platforms given")
@@ -198,41 +247,54 @@ def main() -> int:
         if not product.is_dir() or not PRODUCT.match(product.name):
             report(product, f"{product.name}: expected only product folders, such as logix-ide")
             continue
+        found = []
         for v in sorted(product.iterdir()):
+            if v.name == INDEX and v.is_file():
+                continue
             if v.is_dir() and VERSION.match(v.name):
-                versions.append(v)
+                found.append(v)
             else:
-                report(v, f"{v.name}: expected only config version folders, such as 001")
+                report(v, f"{v.name}: expected only {INDEX} and config version folders, such as 001")
+        versions += found
+        index = product / INDEX
+        if not index.is_file():
+            report(index, f"no {INDEX}")
+        else:
+            errors = check_index(index, index_schema, [v.name for v in found])
+            for e in errors:
+                report(index, e)
+            if not errors:
+                print(f"{index}: ok")
     if not versions:
         report(folder, "no config version folders")
     for v in versions:
-        channels_file = v / CHANNELS
-        if not channels_file.is_file():
-            report(channels_file, f"no {CHANNELS}")
-            channels = {}
+        assign_file = v / ASSIGN
+        if not assign_file.is_file():
+            report(assign_file, f"no {ASSIGN}")
+            assigned = {}
         else:
-            channels, errors = check_channels(channels_file, channels_schema, args.repo)
+            assigned, errors = check_assign(assign_file, assign_schema, args.repo)
             for e in errors:
-                report(channels_file, e)
+                report(assign_file, e)
             if not errors:
-                print(f"{channels_file}: ok")
+                print(f"{assign_file}: ok")
         configs = {}
         for f in sorted(v.iterdir()):
-            if f.name == CHANNELS:
+            if f.name == ASSIGN:
                 continue
             m = CHANNEL_FILE.match(f.name) if f.is_file() else None
             if not m:
-                report(f, f"{f.name}: expected only {CHANNELS} and <channel>.jsonc files")
-            elif m.group(1) not in ("prod", "dev") and m.group(1) not in channels:
-                report(f, f"{f.name}: {m.group(1)} isn't a channel: add it to {CHANNELS}, or remove the file")
+                report(f, f"{f.name}: expected only {ASSIGN} and <channel>-channel.jsonc files")
+            elif m.group(1) not in ("prod", "dev") and m.group(1) not in assigned:
+                report(f, f"{f.name}: {m.group(1)} isn't a channel: add it to {ASSIGN}, or remove the file")
             else:
                 configs[m.group(1)] = f
-        if channels.get("prod") and "prod" not in configs:
-            report(v, "prod.jsonc is required: there are prod releases")
+        if assigned.get("prod") and "prod" not in configs:
+            report(v, "prod-channel.jsonc is required: there are prod releases")
         if not configs:
-            report(v, "needs prod.jsonc, or dev.jsonc until the first promotion")
+            report(v, "needs prod-channel.jsonc, or dev-channel.jsonc until the first promotion")
         for channel, f in configs.items():
-            errors = check_file(f, config_schema, platforms, args.owner, channel == "prod")
+            errors = check_file(f, config_schema, platforms, args.owner, channel, assigned, args.repo)
             for e in errors:
                 report(f, e)
             if not errors:

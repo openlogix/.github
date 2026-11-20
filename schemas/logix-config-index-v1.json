@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.openlogix.org/schemas/logix-config-index-v1.json",
+  "title": "Open Logix remote config index",
+  "description": "The config version folders of a component's remote config: remote-config/<product>/index.jsonc (Remote updates, in the website repo's CLAUDE.md). A component reads it to find its newest release in a config version newer than its own, without listing folders through the GitHub API. It lists exactly the version folders there, oldest first.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "versions"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://www.openlogix.org/schemas/logix-config-index-v1.json"
+    },
+    "versions": {
+      "description": "The config version folders, such as 001, oldest first.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]{3,}$"
+      }
+    }
+  },
+  "additionalProperties": false
+}

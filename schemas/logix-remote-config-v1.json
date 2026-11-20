@@ -2,24 +2,41 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://www.openlogix.org/schemas/logix-remote-config-v1.json",
   "title": "Open Logix remote config",
-  "description": "What one Open Logix component uses: one entry per direct dependency, naming a GitHub release and its file. A component reads remote-config/<product>/<NNN>/<channel>.jsonc from its own repo, by the config version it hard-codes and its channel (Remote updates, in the website repo's CLAUDE.md). The file is JSONC: comments say why each entry changed.",
+  "description": "What one Open Logix component's releases on a channel use: its direct dependencies, each naming a GitHub release and its file, and the component's own newest release on the channel. A component reads remote-config/<product>/<NNN>/<channel>-channel.jsonc from its own repo, by the config version it hard-codes and its channel (Remote updates, in the website repo's CLAUDE.md). The dependencies serve every release on the channel, not only latest. The file is JSONC: comments say why each entry changed.",
   "type": "object",
-  "required": ["$schema"],
+  "required": [
+    "$schema",
+    "dependencies"
+  ],
   "properties": {
     "$schema": {
       "const": "https://www.openlogix.org/schemas/logix-remote-config-v1.json"
+    },
+    "latest": {
+      "$ref": "#/$defs/latest"
+    },
+    "dependencies": {
+      "description": "The direct dependencies, by package name.",
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z0-9][a-z0-9-]*$": {
+          "$ref": "#/$defs/dependency"
+        }
+      },
+      "additionalProperties": false
     }
   },
-  "patternProperties": {
-    "^[a-z0-9][a-z0-9-]*$": { "$ref": "#/$defs/dependency" }
-  },
   "additionalProperties": false,
-  "minProperties": 2,
   "$defs": {
     "dependency": {
-      "description": "A dependency, keyed by its package name, such as logix-catalog.",
       "type": "object",
-      "required": ["repo", "release", "file"],
+      "description": "A dependency, keyed by its package name, such as logix-catalog.",
+      "required": [
+        "repo",
+        "release",
+        "file"
+      ],
       "properties": {
         "repo": {
           "description": "The GitHub repo of its releases, owner/name, such as openlogix/logix-catalog.",
@@ -27,7 +44,33 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$"
         },
         "release": {
-          "description": "The release tag, yyyy-mm-dd. A prod config (prod.jsonc) names only stable releases; other channels may name pre-releases.",
+          "description": "The release tag, yyyy-mm-dd. A prod config (prod-channel.jsonc) names only stable releases; other channels may name pre-releases.",
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "file": {
+          "description": "The release file's name, a template: ${PLATFORM} is the platform, such as darwin-arm64, and ${YYYYMMDD} the release tag without dashes. Such as logix-core-${PLATFORM}-${YYYYMMDD}.tgz.",
+          "type": "string",
+          "pattern": "^([A-Za-z0-9_-]|\\$\\{PLATFORM\\}|\\$\\{YYYYMMDD\\})([A-Za-z0-9._-]|\\$\\{PLATFORM\\}|\\$\\{YYYYMMDD\\})*$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "latest": {
+      "type": "object",
+      "description": "The component's own newest release on this channel, the one its users should have; a release on the channel's list in assign.jsonc, the newest one. The component tells its users when it's newer than itself (Check for Updates); nothing downloads it, so file is optional (a component with one file per platform names it; Logix IDE's installers differ by platform, so it has none).",
+      "required": [
+        "repo",
+        "release"
+      ],
+      "properties": {
+        "repo": {
+          "description": "The GitHub repo of its releases, owner/name, such as openlogix/logix-catalog.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$"
+        },
+        "release": {
+          "description": "The release tag, yyyy-mm-dd. A prod config (prod-channel.jsonc) names only stable releases; other channels may name pre-releases.",
           "type": "string",
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
         },

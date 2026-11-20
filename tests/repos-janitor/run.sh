@@ -20,14 +20,14 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "❌&nbsp;&nbsp; **29 failed, 76 passed** · 8 repos · 2026-11-14 03:00 UTC" \
+  "❌&nbsp;&nbsp; **29 failed, 79 passed** · 8 repos · 2026-11-14 03:00 UTC" \
   "### Failed" \
   "### Passed" \
   "### Verification results" \
   "**openlogix/logix-ide**" \
   "<details><summary><b>openlogix/logix-core</b> · " \
   "- Release should be valid" \
-  "    - [Why] Named by logix-ide [\`001/dev.jsonc\`](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc)." \
+  "    - [Why] Named by logix-ide [\`001/dev-channel.jsonc\`](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev-channel.jsonc)." \
   "    - [Result] No \`BUILD-INFO.json\`." \
   "    - [Fix] [release](https://github.com/openlogix/logix-catalog/releases/tag/2026-11-01)" \
   "    - [Fix] [workflow](https://github.com/openlogix/logix-engine/actions/workflows/test.yaml) · [run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
@@ -37,13 +37,13 @@ for text in \
   "    - [Result] Prod." \
   "    - [Result] No prod release yet." \
   "- Release should be Latest" \
-  "    - [Why] Used by a recommended install: logix-engine [\`2026-11-01\`](https://github.com/openlogix/logix-engine/releases/tag/2026-11-01) (Latest) → [\`001/prod.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/prod.jsonc) → logix-core \`2026-11-03\`." \
-  "    - [Why] On the prod list of [\`001/channels.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/channels.jsonc)." \
+  "    - [Why] Used by a recommended install: logix-engine [\`2026-11-01\`](https://github.com/openlogix/logix-engine/releases/tag/2026-11-01) (Latest) → [\`001/prod-channel.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/prod-channel.jsonc) → logix-core \`2026-11-03\`." \
+  "    - [Why] On the prod list of [\`001/assign.jsonc\`](https://github.com/openlogix/logix-engine/blob/main/remote-config/logix-engine/001/assign.jsonc)." \
   "- Latest should be used by a recommended install" \
   "    - [Result] Not used by a recommended install." \
   "- Dev config should not lag behind prod" \
   "    - [Result] Older than prod's \`2026-11-05\`." \
-  "    - [Fix] [dev config](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev.jsonc) · [prod config](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/prod.jsonc)" \
+  "    - [Fix] [dev config](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev-channel.jsonc) · [prod config](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/prod-channel.jsonc)" \
   "- Daily build should be recent" \
   "    - [Result] Last run 2 day(s) ago (2026-11-12 00:00 UTC)." \
   "- Repo metadata should be valid" \
@@ -88,7 +88,7 @@ r = json.load(open(sys.argv[1]))
 assert r["passed"] is False and set(r) == {"passed", "failures", "successes"}, list(r)
 e = r["failures"]["openlogix/logix-catalog"]["release-should-be-valid"][0]
 assert e["release_tag"] == "2026-11-01" and e["notes"] == [
-    "[Why] Named by logix-ide 001/dev.jsonc.", "[Result] No BUILD-INFO.json."], e
+    "[Why] Named by logix-ide 001/dev-channel.jsonc.", "[Result] No BUILD-INFO.json."], e
 assert "dev-should-not-lag-behind-prod" in r["failures"]["openlogix/logix-ide"]
 assert "latest-should-be-prod" in r["successes"]["openlogix/logix-engine"]
 PYEOF
