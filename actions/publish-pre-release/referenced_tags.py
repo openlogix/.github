@@ -1,6 +1,7 @@
 """Prints the release tags of a repo that a remote config on main names, one
 per line, in any public Open Logix repo, any config version and any
-channel (remote-config/<product>/<NNN>/<channel>.jsonc). publish-pre-release
+channel (remote-config/<product>/<NNN>/<channel>-channel.jsonc: its dependencies
+and its latest). publish-pre-release
 never deletes those pre-releases (Remote updates, Release cleanup, in the
 website repo's CLAUDE.md).
 
@@ -16,7 +17,7 @@ import re
 import subprocess
 import sys
 
-CONFIG = re.compile(r"^remote-config/[^/]+/[0-9]{3}/(?!channels\.jsonc$)[a-z][a-z0-9-]*\.jsonc$")
+CONFIG = re.compile(r"^remote-config/[^/]+/[0-9]{3,}/[a-z][a-z0-9-]*-channel\.jsonc$")
 
 
 def gh_api(*args: str) -> str:
@@ -73,8 +74,13 @@ def main() -> None:
                 config = json.loads(strip_comments(text))
             except ValueError:
                 continue  # The repo's own CI reports a broken config.
-            for name, dep in config.items():
-                if name != "$schema" and isinstance(dep, dict) and dep.get("repo") == target and dep.get("release"):
+            if not isinstance(config, dict):
+                continue
+            deps = config.get("dependencies")
+            named = list(deps.values()) if isinstance(deps, dict) else []
+            named.append(config.get("latest"))
+            for dep in named:
+                if isinstance(dep, dict) and dep.get("repo") == target and dep.get("release"):
                     tags.add(dep["release"])
     for tag in sorted(tags):
         print(tag)

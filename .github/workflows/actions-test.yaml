@@ -93,7 +93,7 @@ jobs:
 
   # -- Test action check-platform
   # -- list-config-channels: one channel per config file, sorted, without
-  # -- channels.jsonc, from the newest version folder; fails without one.
+  # -- assign.jsonc, from the newest version folder; fails without one.
   test-list-config-channels:
     runs-on: ubuntu-latest
 
@@ -104,9 +104,9 @@ jobs:
       - name: Make fixture configs
         run: |
           mkdir -p fixture/logix-x/001 fixture/logix-x/002 fixture/logix-y/001
-          touch fixture/logix-x/001/channels.jsonc fixture/logix-x/001/prod.jsonc
-          touch fixture/logix-x/002/channels.jsonc fixture/logix-x/002/prod.jsonc fixture/logix-x/002/dev.jsonc
-          touch fixture/logix-y/001/channels.jsonc
+          touch fixture/logix-x/001/assign.jsonc fixture/logix-x/001/prod-channel.jsonc
+          touch fixture/logix-x/002/assign.jsonc fixture/logix-x/002/prod-channel.jsonc fixture/logix-x/002/dev-channel.jsonc
+          touch fixture/logix-y/001/assign.jsonc
 
       - name: List the newest version folder's channels
         id: list
@@ -298,7 +298,7 @@ jobs:
     env:
       FAKE_GH_STATE: ${{ github.workspace }}/_fake-releases.json
       # The cleanup's referenced tags: a fixture org where logix-ide's
-      # dev.jsonc names this repo's test release p1.
+      # dev-channel.jsonc names this repo's test release p1.
       FAKE_GH_ORG: ${{ github.workspace }}/tests/publish-pre-release/org
       GH_TOKEN: unused
 

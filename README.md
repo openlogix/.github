@@ -43,7 +43,7 @@ Composite actions in [actions/](actions), and one reusable workflow, used from t
 | `publish-pre-release` | A release workflow's end: checksums, the standard release text, the day's pre-release made again from scratch, and the cleanup |
 | `check-platform` | Fails unless the runner has the given OS and architecture |
 | `scan-files-for-viruses` | Scans files, including inside archives, with ClamAV |
-| `check-remote-config` | Checks a repo's remote configs (`remote-config/<product>/<NNN>/`: `channels.jsonc` and a config file per channel): the schemas, the channels, and that every named release exists, has its files, and is stable in `prod.jsonc` |
+| `check-remote-config` | Checks a repo's remote configs (`remote-config/<product>/`: `index.jsonc` and a folder per config version, `<NNN>/`, with `assign.jsonc` and a `<channel>-channel.jsonc` per channel): the schemas, the channels, `latest`, and that every named release exists, has its files, and is stable in `prod-channel.jsonc` |
 | `assert-step-failed` | Fails unless an earlier step failed, for testing expected failures |
 | [`publish-docs.yaml`](.github/workflows/publish-docs.yaml) (reusable workflow) | Builds a repo's MkDocs site and deploys it to its GitHub Pages |
 

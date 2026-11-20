@@ -1,8 +1,0 @@
-{
-  "$schema": "https://www.openlogix.org/schemas/logix-remote-config-v1.json",
-  "test-thing": {
-    "repo": "openlogix/.github",
-    "release": "p1",
-    "file": "asset.txt"
-  }
-}

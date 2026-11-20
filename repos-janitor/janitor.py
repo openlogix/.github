@@ -47,9 +47,12 @@ RUN_MAX_AGE = dt.timedelta(hours=26)
 WEBSITE = "openlogix.github.io"
 # The repos whose schemas/ own the website's docs/schemas/ copies.
 SCHEMA_OWNERS = ["logix-catalog", ".github"]
-# A version folder's files: channels.jsonc and a config file per channel.
+# A version folder's files: assign.jsonc and a config file per channel,
+# <channel>-channel.jsonc.
 CONFIG_FILE = re.compile(r"^remote-config/([^/]+)/([^/]+)/([^/]+)$")
-CHANNEL_CONFIG = re.compile(r"^remote-config/[^/]+/[0-9]{3}/(?!channels\.jsonc$)[a-z][a-z0-9-]*\.jsonc$")
+CHANNEL_CONFIG = re.compile(r"^remote-config/[^/]+/[0-9]{3,}/[a-z][a-z0-9-]*-channel\.jsonc$")
+# A product's index of its version folders.
+INDEX_FILE = re.compile(r"^remote-config/([^/]+)/(index\.jsonc)$")
 WORKFLOW = re.compile(r"^\.github/workflows/[^/]+\.ya?ml$")
 # Repo types (the website repo's CLAUDE.md, Repo types), from each repo's
 # metadata file.
@@ -259,7 +262,7 @@ def tag_date(tag: str) -> dt.date | None:
 
 def config_name(path: str) -> str:
     """A config file as the report names it: its version folder and name,
-    such as 001/dev.jsonc."""
+    such as 001/dev-channel.jsonc."""
     return "/".join(path.split("/")[-2:])
 
 
@@ -324,12 +327,12 @@ class Repo:
         return next((r for r in self.releases() if r["tag_name"] == tag), None)
 
     def channels(self) -> dict[str, dict[str, list[str]]]:
-        """Per version folder (such as 001), its channels.jsonc lists."""
+        """Per version folder (such as 001), its assign.jsonc lists."""
         if self._channels is None:
             self._channels = {}
             for p in self.files:
                 m = CONFIG_FILE.match(p)
-                if m and m.group(3) == "channels.jsonc":
+                if m and m.group(3) == "assign.jsonc":
                     try:
                         data = json.loads(strip_comments(raw(self.name, p, self.branch)))
                     except ValueError:
@@ -343,7 +346,7 @@ class Repo:
         return {t: v for v, chans in self.channels().items() for t in chans.get("prod", [])}
 
     def channels_path(self, version: str) -> str | None:
-        return next((p for p in self.files if p.endswith(f"/{version}/channels.jsonc")), None)
+        return next((p for p in self.files if p.endswith(f"/{version}/assign.jsonc")), None)
 
     def readme(self) -> str | None:
         return raw(self.name, "README.md", self.branch) if "README.md" in self.files else None
@@ -373,15 +376,22 @@ def req_release(repo: Repo, tag: str, report: Report, req: str) -> Instance:
 def check_configs(repo: Repo, report: Report) -> list[dict]:
     """config-should-be-valid: each version folder's files pass
     check-remote-config. Returns the entries of the channel config files."""
-    paths = [p for p in repo.files if CONFIG_FILE.match(p)]
+    paths = [p for p in repo.files if CONFIG_FILE.match(p) or INDEX_FILE.match(p)]
     if not paths:
         return []
     for p in paths:
+        if INDEX_FILE.match(p):
+            product = INDEX_FILE.match(p).group(1)
+            why = f"{product}'s config version folders."
+            url = blob(repo.name, repo.branch, p)
+            report.require(repo.name, "config-should-be-valid", p, f"[`{p.split('/', 1)[1]}`]({url})",
+                           p.split("/", 1)[1], file=p).because(why).link("file", url)
+            continue
         product, version, name = CONFIG_FILE.match(p).groups()
-        if name == "channels.jsonc":
+        if name == "assign.jsonc":
             why = f"{product}'s release channels for config {version}."
         elif CHANNEL_CONFIG.match(p):
-            why = f"Read by {product} releases on config {version}, channel {name[: -len('.jsonc')]}."
+            why = f"Read by {product} releases on config {version}, channel {name[: -len('-channel.jsonc')]}."
         else:
             why = f"In {product}'s remote config folder."
         url = blob(repo.name, repo.branch, p)
@@ -398,8 +408,11 @@ def check_configs(repo: Repo, report: Report) -> list[dict]:
                 continue
             try:
                 config = json.loads(strip_comments(text))
-                for name, dep in config.items():
-                    if name != "$schema" and isinstance(dep, dict):
+                named = dict(config.get("dependencies") or {})
+                if isinstance(config.get("latest"), dict):
+                    named["latest"] = config["latest"]
+                for name, dep in named.items():
+                    if isinstance(dep, dict):
                         entries.append({"config": p, "name": name, **dep})
             except (ValueError, AttributeError):
                 pass
@@ -429,7 +442,7 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
     """dev-should-not-lag-behind-prod: a dev config naming an older release
     than its version's prod config (a dev file left over after a promotion)."""
     prod_pins = {(e["config"].rsplit("/", 1)[0], e["name"]): e for e in entries
-                 if e["config"].endswith("/prod.jsonc")}
+                 if e["config"].endswith("/prod-channel.jsonc")}
     for e in entries:
         dep = repos.get(e.get("repo", ""))
         tag = e.get("release", "")
@@ -437,7 +450,7 @@ def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: 
             continue  # config-should-be-valid reports it.
         cfg = config_name(e["config"])
         cfg_url = blob(repo.name, repo.branch, e["config"])
-        channel = cfg.split("/")[1][: -len(".jsonc")]
+        channel = cfg.split("/")[1][: -len("-channel.jsonc")]
         prod = prod_pins.get((e["config"].rsplit("/", 1)[0], e["name"]))
         if channel == "dev" and prod and prod.get("repo") == e.get("repo") and DATE_TAG.match(prod.get("release", "")):
             prod_cfg = config_name(prod["config"])
@@ -469,11 +482,11 @@ def check_releases(repos: dict[str, Repo], entries_by_repo: dict[str, list[dict]
             cfg = config_name(e["config"])
             named = f"Named by {repo.short} [`{cfg}`]({blob(repo.name, repo.branch, e['config'])})"
             req_release(dep, tag, report, "release-should-be-valid").because(named + ".")
-            if cfg.endswith("/prod.jsonc"):
+            if cfg.endswith("/prod-channel.jsonc"):
                 req_release(dep, tag, report, "release-should-be-stable").because(
                     named + ".")
         for tag, version in repo.prod_tags().items():
-            listed = f"On the prod list of [`{version}/channels.jsonc`]({blob(repo.name, repo.branch, repo.channels_path(version))})"
+            listed = f"On the prod list of [`{version}/assign.jsonc`]({blob(repo.name, repo.branch, repo.channels_path(version))})"
             req_release(repo, tag, report, "release-should-be-stable").because(listed + ".")
             req_release(repo, tag, report, "release-should-be-valid").because(listed + ".")
         latest = repo.latest()
@@ -499,7 +512,7 @@ def check_releases(repos: dict[str, Repo], entries_by_repo: dict[str, list[dict]
 
 
 def release_channel(repo: Repo, tag: str) -> str | None:
-    """The channel of a release: from the channels.jsonc of the version
+    """The channel of a release: from the assign.jsonc of the version
     folder its BUILD-INFO.json names (dev when unlisted); None when unknown."""
     text = release_file(repo.name, tag, "BUILD-INFO.json")
     try:
@@ -514,7 +527,7 @@ def release_channel(repo: Repo, tag: str) -> str | None:
 
 def reachable_releases(repos: dict[str, Repo]) -> dict[str, dict[str, list[str]]]:
     """The dependency releases the recommended installs use: from each
-    installable repo's Latest, the releases its prod.jsonc names (in the
+    installable repo's Latest, the releases its prod-channel.jsonc names (in the
     version folder its BUILD-INFO.json names), directly or through another
     installable it names. Dependency repo -> tag -> how it's reached."""
     reach: dict[str, dict[str, list[str]]] = {}
@@ -530,15 +543,15 @@ def reachable_releases(repos: dict[str, Repo]) -> dict[str, dict[str, list[str]]
         except ValueError:
             info = {}
         version, product = info.get("config-version"), info.get("package-name")
-        path = f"remote-config/{product}/{version}/prod.jsonc"
+        path = f"remote-config/{product}/{version}/prod-channel.jsonc"
         if not version or path not in repo.files:
             return
         config = json.loads(strip_comments(raw(repo.name, path, repo.branch)))
-        for name, dep in config.items():
-            if name == "$schema" or not isinstance(dep, dict) or dep.get("repo") not in repos:
+        for name, dep in (config.get("dependencies") or {}).items():
+            if not isinstance(dep, dict) or dep.get("repo") not in repos:
                 continue
             target, release = repos[dep["repo"]], dep.get("release", "")
-            step = f"{via} → [`{version}/prod.jsonc`]({blob(repo.name, repo.branch, path)}) → {name} `{release}`"
+            step = f"{via} → [`{version}/prod-channel.jsonc`]({blob(repo.name, repo.branch, path)}) → {name} `{release}`"
             if target.type == "dependency":
                 reach.setdefault(target.name, {}).setdefault(release, []).append(step)
             elif target.type == "installable":
@@ -573,7 +586,7 @@ def check_latest(repo: Repo, reach: dict, report: Report) -> None:
             inst.verdict(True, "Prod.")
         else:
             inst.verdict(False, f"On {channel}, not prod." if channel
-                         else "Channel unknown: no `config-version` in `BUILD-INFO.json`, or no `channels.jsonc`.")
+                         else "Channel unknown: no `config-version` in `BUILD-INFO.json`, or no `assign.jsonc`.")
         if prod:
             newest = max(prod)
             rel = req_release(repo, newest, report, "release-should-be-latest")
