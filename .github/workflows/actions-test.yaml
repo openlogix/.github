@@ -170,7 +170,7 @@ jobs:
 
   # -- check-remote-config: the checker on every case (with a fake gh that
   # -- answers from fixture releases), then the action itself, passing on a
-  # -- good config and on a pre-release, failing on one with require-stable.
+  # -- good config and on a pre-release, failing on a prod config naming one.
   # -- repos-janitor: every check against a fixture org, with a fake gh.
   test-repos-janitor:
     runs-on: ubuntu-latest
