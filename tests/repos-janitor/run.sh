@@ -115,10 +115,13 @@ assert pick(run(1, "schedule", "failure", 14, 0), run(2, "push", "success", 14, 
 # Cancelled runs are skipped: the run before them decides.
 assert pick(run(1, "push", "failure", 14, 0), run(2, "schedule", "cancelled", 14, 1)) == (1, None)
 assert pick(run(1, "push", "success", 13, 0), run(2, "schedule", "cancelled", 14, 1)) == (1, None)
-# Skipping back more than 36 hours is a failure, passing run or not.
+# Skipping back more than 12 hours is a failure, passing run or not.
 assert pick(run(1, "push", "success", 12, 0), run(2, "schedule", "cancelled", 12, 23),
-            run(3, "schedule", "cancelled", 13, 23)) == (1, "Only cancelled runs since 2026-11-12 23:00 UTC (over 36 hours).")
+            run(3, "schedule", "cancelled", 13, 23)) == (1, "Only cancelled runs since 2026-11-12 23:00 UTC (over 12 hours).")
 assert pick(run(1, "schedule", "cancelled", 12, 0))[1] is not None
+# 12 hours exactly is fine; 13 isn't.
+assert pick(run(1, "push", "success", 13, 0), run(2, "schedule", "cancelled", 14, 0)) == (1, None)
+assert pick(run(1, "push", "success", 13, 0), run(2, "schedule", "cancelled", 13, 23))[1] is not None
 # Old cancelled runs before a newer result don't matter.
 assert pick(run(1, "schedule", "cancelled", 10, 0), run(2, "push", "success", 14, 0)) == (2, None)
 # Runs still going and pull requests don't count.

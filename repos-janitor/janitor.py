@@ -730,7 +730,7 @@ def run_time(run: dict, key: str = "created_at") -> dt.datetime:
 
 
 # How far back cancelled runs may be skipped before that's a failure itself.
-CANCELLED_MAX_AGE = dt.timedelta(hours=36)
+CANCELLED_MAX_AGE = dt.timedelta(hours=12)
 
 
 def newest_result(runs: list[dict], at: dt.datetime) -> tuple[dict | None, str | None]:
