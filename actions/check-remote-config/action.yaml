@@ -7,8 +7,9 @@ description: >-
   schemas (logix-remote-config-v1, logix-assign-v1, logix-config-index-v1,
   in this repo), the channels (each release on at most one; prod releases
   stable releases of this repo; prod-channel.jsonc when there are any), for
-  every dependency that its release exists (stable, in prod-channel.jsonc),
-  that its file exists for each platform and that the release's SHA256SUMS
+  every dependency that its release exists (stable, in prod-channel.jsonc;
+  outside prod it may be newest, the repo's newest release), that its file
+  exists for each platform and that the release's SHA256SUMS
   lists it, and latest (a release of this repo, the newest on its channel's
   list; required in prod-channel.jsonc when there are prod releases). On main, and on
   pull requests into main, repos must be in the owner. Reports every problem,

@@ -9,6 +9,12 @@
     "name": "logix-core-darwin-arm64-20261103.tgz"
    },
    {
+    "name": "logix-core-windows-x86-64-20261103.tgz"
+   },
+   {
+    "name": "logix-core-linux-x86-64-20261103.tgz"
+   },
+   {
     "name": "SHA256SUMS"
    },
    {

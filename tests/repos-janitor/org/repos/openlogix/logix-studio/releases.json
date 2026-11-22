@@ -9,6 +9,12 @@
     "name": "logix-studio-darwin-arm64-20261102.tgz"
    },
    {
+    "name": "logix-studio-windows-x86-64-20261102.tgz"
+   },
+   {
+    "name": "logix-studio-linux-x86-64-20261102.tgz"
+   },
+   {
     "name": "SHA256SUMS"
    },
    {

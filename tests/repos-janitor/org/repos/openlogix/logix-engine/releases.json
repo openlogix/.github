@@ -8,6 +8,12 @@
     "name": "logix-engine-darwin-arm64-20261114.tgz"
    },
    {
+    "name": "logix-engine-windows-x86-64-20261114.tgz"
+   },
+   {
+    "name": "logix-engine-linux-x86-64-20261114.tgz"
+   },
+   {
     "name": "SHA256SUMS"
    },
    {
@@ -22,6 +28,12 @@
   "assets": [
    {
     "name": "logix-engine-darwin-arm64-20261113.tgz"
+   },
+   {
+    "name": "logix-engine-windows-x86-64-20261113.tgz"
+   },
+   {
+    "name": "logix-engine-linux-x86-64-20261113.tgz"
    },
    {
     "name": "SHA256SUMS"
@@ -40,6 +52,12 @@
     "name": "logix-engine-darwin-arm64-20261112.tgz"
    },
    {
+    "name": "logix-engine-windows-x86-64-20261112.tgz"
+   },
+   {
+    "name": "logix-engine-linux-x86-64-20261112.tgz"
+   },
+   {
     "name": "SHA256SUMS"
    },
    {
@@ -54,6 +72,12 @@
   "assets": [
    {
     "name": "logix-engine-darwin-arm64-20261111.tgz"
+   },
+   {
+    "name": "logix-engine-windows-x86-64-20261111.tgz"
+   },
+   {
+    "name": "logix-engine-linux-x86-64-20261111.tgz"
    },
    {
     "name": "SHA256SUMS"
@@ -72,6 +96,12 @@
     "name": "logix-engine-darwin-arm64-20261110.tgz"
    },
    {
+    "name": "logix-engine-windows-x86-64-20261110.tgz"
+   },
+   {
+    "name": "logix-engine-linux-x86-64-20261110.tgz"
+   },
+   {
     "name": "SHA256SUMS"
    },
    {
@@ -87,6 +117,12 @@
   "assets": [
    {
     "name": "logix-engine-darwin-arm64-20261101.tgz"
+   },
+   {
+    "name": "logix-engine-windows-x86-64-20261101.tgz"
+   },
+   {
+    "name": "logix-engine-linux-x86-64-20261101.tgz"
    },
    {
     "name": "SHA256SUMS"
