@@ -32,6 +32,7 @@ for text in \
   "    - [Fix] [release](https://github.com/openlogix/logix-catalog/releases/tag/2026-11-01)" \
   "    - [Fix] [workflow](https://github.com/openlogix/logix-engine/actions/workflows/test.yaml) · [run](https://github.com/openlogix/logix-engine/actions/runs/1)" \
   "    - [Result] Failure (2026-11-14 00:00 UTC)." \
+  "    - [Result] Passed (2026-11-12 00:05 UTC, push)." \
   "- Latest should be a prod release" \
   "    - [Result] On dev, not prod." \
   "    - [Result] Prod." \
@@ -96,6 +97,37 @@ assert e["release_tag"] == "2026-11-01" and e["notes"] == [
     "[Why] Named by logix-ide 001/dev-channel.jsonc.", "[Result] No BUILD-INFO.json."], e
 assert "dev-should-not-lag-behind-prod" in r["failures"]["openlogix/logix-ide"]
 assert "latest-should-be-prod" in r["successes"]["openlogix/logix-engine"]
+PYEOF
+# The run that says whether a workflow passes (newest_result).
+python3 - "$repo/repos-janitor" <<'PYEOF' || fail "newest_result picks the wrong run"
+import sys, datetime as dt
+sys.path.insert(0, sys.argv[1])
+from janitor import newest_result
+def run(n, event, conclusion, day, hour, status="completed"):
+    return {"id": n, "event": event, "status": status, "conclusion": conclusion,
+            "created_at": f"2026-11-{day:02}T{hour:02}:00:00Z"}
+at = dt.datetime(2026, 11, 14, 12, tzinfo=dt.timezone.utc)
+def pick(*runs):
+    r, problem = newest_result(list(runs), at)
+    return (r and r["id"], problem)
+# A scheduled failure, then a push that passed: the push decides.
+assert pick(run(1, "schedule", "failure", 14, 0), run(2, "push", "success", 14, 1)) == (2, None)
+# Cancelled runs are skipped: the run before them decides.
+assert pick(run(1, "push", "failure", 14, 0), run(2, "schedule", "cancelled", 14, 1)) == (1, None)
+assert pick(run(1, "push", "success", 13, 0), run(2, "schedule", "cancelled", 14, 1)) == (1, None)
+# Skipping back more than 12 hours is a failure, passing run or not.
+assert pick(run(1, "push", "success", 12, 0), run(2, "schedule", "cancelled", 12, 23),
+            run(3, "schedule", "cancelled", 13, 23)) == (1, "Only cancelled runs since 2026-11-12 23:00 UTC (over 12 hours).")
+assert pick(run(1, "schedule", "cancelled", 12, 0))[1] is not None
+# 12 hours exactly is fine; 13 isn't.
+assert pick(run(1, "push", "success", 13, 0), run(2, "schedule", "cancelled", 14, 0)) == (1, None)
+assert pick(run(1, "push", "success", 13, 0), run(2, "schedule", "cancelled", 13, 23))[1] is not None
+# Old cancelled runs before a newer result don't matter.
+assert pick(run(1, "schedule", "cancelled", 10, 0), run(2, "push", "success", 14, 0)) == (2, None)
+# Runs still going and pull requests don't count.
+assert pick(run(1, "schedule", "success", 14, 0), run(2, "push", None, 14, 1, status="in_progress"),
+            run(3, "pull_request", "failure", 14, 2)) == (1, None)
+assert pick() == (None, None)
 PYEOF
 [[ $failures -eq 0 ]] || exit 1
 echo "All repos-janitor tests passed."

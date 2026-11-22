@@ -720,35 +720,77 @@ def check_llms_txt(repos: dict[str, Repo], report: Report) -> None:
             link.verdict(True, "Answers 200.")
 
 
+# The runs that tell whether a workflow passes on the default branch: not
+# pull requests, whose code isn't on it yet.
+RUN_EVENTS = {"schedule", "push", "workflow_dispatch"}
+
+
+def run_time(run: dict, key: str = "created_at") -> dt.datetime:
+    return dt.datetime.fromisoformat((run.get(key) or run["created_at"]).replace("Z", "+00:00"))
+
+
+# How far back cancelled runs may be skipped before that's a failure itself.
+CANCELLED_MAX_AGE = dt.timedelta(hours=12)
+
+
+def newest_result(runs: list[dict], at: dt.datetime) -> tuple[dict | None, str | None]:
+    """The run that says whether a workflow passes now: the newest finished
+    run, whatever started it (a scheduled run, a push or a manual run),
+    skipping cancelled runs (such as one a newer run replaced). Returns it,
+    and a problem when the runs skipped reach back more than
+    CANCELLED_MAX_AGE (from `at`): only cancelled runs for that long means
+    something needs looking at."""
+    runs = sorted((r for r in runs if r.get("event") in RUN_EVENTS and r.get("status") == "completed"),
+                  key=run_time, reverse=True)
+    skipped = [r for r in runs if r["conclusion"] == "cancelled"]
+    result = next((r for r in runs if r["conclusion"] != "cancelled"), None)
+    if result is not None:
+        skipped = [r for r in skipped if run_time(r) > run_time(result)]
+    if skipped and at - run_time(skipped[-1]) > CANCELLED_MAX_AGE:
+        hours = CANCELLED_MAX_AGE.total_seconds() / 3600
+        since = run_time(skipped[-1]).strftime("%Y-%m-%d %H:%M UTC")
+        return result, f"Only cancelled runs since {since} (over {hours:.0f} hours)."
+    return result, None
+
+
 def check_runs(repo: Repo, report: Report) -> None:
-    """daily-build-should-pass and daily-build-should-be-recent: each
-    scheduled workflow's latest scheduled run on the default branch."""
+    """daily-build-should-pass: each scheduled workflow's newest finished run
+    on the default branch (newest_result); daily-build-should-be-recent: its
+    newest scheduled run, since only those show the schedule is still on."""
     for path in (p for p in repo.files if WORKFLOW.match(p)):
         file = path.rsplit("/", 1)[1]
         if repo.short == ".github" and file.startswith("repos-janitor."):
             continue  # Itself: a failure here would only repeat.
         if not re.search(r"^\s*schedule:", raw(repo.name, path, repo.branch), re.M):
             continue
-        runs = api(f"repos/{repo.name}/actions/workflows/{file}/runs?branch={repo.branch}&event=schedule&status=completed&per_page=1")
-        run = runs["workflow_runs"][0] if runs and runs.get("workflow_runs") else None
+        base = f"repos/{repo.name}/actions/workflows/{file}/runs?branch={repo.branch}"
+        runs = api(f"{base}&event=schedule&status=completed&per_page=1")
+        scheduled = runs["workflow_runs"][0] if runs and runs.get("workflow_runs") else None
         wf = f"https://github.com/{repo.name}/actions/workflows/{file}"
         why = "A scheduled workflow."
         ok = report.require(repo.name, "daily-build-should-pass", file, f"[`{file}`]({wf})", file, workflow=file)
         recent = report.require(repo.name, "daily-build-should-be-recent", file, f"[`{file}`]({wf})", file, workflow=file)
         for inst in (ok, recent):
             inst.because(why).link("workflow", wf)
-        if run is None:
+        if scheduled is None:
             recent.verdict(False, "No scheduled run yet.")
             continue
-        ok.link("run", run["html_url"])
-        recent.link("run", run["html_url"])
-        started = dt.datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
-        when = started.strftime("%Y-%m-%d %H:%M UTC")
-        ok.verdict(run["conclusion"] == "success",
-                   f"Passed ({when})." if run["conclusion"] == "success"
-                   else f"{run['conclusion'].capitalize()} ({when}).")
-        age = now() - started
+        recent.link("run", scheduled["html_url"])
+        when = run_time(scheduled).strftime("%Y-%m-%d %H:%M UTC")
+        age = now() - run_time(scheduled)
         recent.verdict(age <= RUN_MAX_AGE, f"Last run {age.days} day(s) ago ({when}).")
+        result, problem = newest_result((api(f"{base}&per_page=30") or {}).get("workflow_runs", []), now())
+        if problem:
+            ok.verdict(False, problem)
+            continue
+        result = result or scheduled
+        ok.link("run", result["html_url"])
+        when = run_time(result).strftime("%Y-%m-%d %H:%M UTC")
+        if result.get("event", "schedule") != "schedule":
+            when += f", {result['event'].replace('_', ' ')}"
+        ok.verdict(result["conclusion"] == "success",
+                   f"Passed ({when})." if result["conclusion"] == "success"
+                   else f"{result['conclusion'].capitalize()} ({when}).")
 
 
 def check_tags(repo: Repo, report: Report) -> None:

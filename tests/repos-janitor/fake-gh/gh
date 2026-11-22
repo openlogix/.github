@@ -72,8 +72,15 @@ if args[:1] == ["api"]:
         r = next((r for r in releases(full) if r["tag_name"] == rest[2]), None)
         out(r) if r else not_found()
     if rest[:2] == ["actions", "workflows"] and rest[3:] == ["runs"]:
+        # Runs without an event are scheduled ones; the query's event and
+        # status filter them, newest first, as GitHub does.
         f = d / "runs" / f"{rest[2]}.json"
-        out(json.loads(f.read_text()) if f.is_file() else {"workflow_runs": []})
+        runs = json.loads(f.read_text())["workflow_runs"] if f.is_file() else []
+        q = dict(kv.split("=", 1) for kv in query.split("&") if "=" in kv)
+        runs = [r for r in runs if q.get("event", r.get("event", "schedule")) == r.get("event", "schedule")
+                and q.get("status", r.get("status", "completed")) == r.get("status", "completed")]
+        runs.sort(key=lambda r: r["created_at"], reverse=True)
+        out({"workflow_runs": runs[:int(q.get("per_page", 30))]})
 
 print(f"fake gh: unexpected call: {' '.join(sys.argv[1:])}", file=sys.stderr)
 sys.exit(2)
