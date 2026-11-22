@@ -1,9 +1,17 @@
 #!/bin/bash
-# A stand-in for the gh CLI in the check-remote-config tests: answers the two
-# calls the checker makes from the fixture releases in $FAKE_GH_RELEASES,
+# A stand-in for the gh CLI in the check-remote-config tests: answers the
+# calls the checker makes (a release by tag, the release list for newest,
+# SHA256SUMS) from the fixture releases in $FAKE_GH_RELEASES,
 # <owner>/<name>/<tag>.json and <tag>.SHA256SUMS.
 set -euo pipefail
-if [[ "$1" == "api" && "$2" =~ ^repos/([^/]+/[^/]+)/releases/tags/(.+)$ ]]; then
+if [[ "$1" == "api" && "$2" =~ ^repos/([^/]+/[^/]+)/releases\?per_page=[0-9]+$ ]]; then
+  # The release list, newest first, as GitHub gives it.
+  d="$FAKE_GH_RELEASES/${BASH_REMATCH[1]}"
+  [[ -d "$d" ]] || { echo "HTTP 404: Not Found" >&2; exit 1; }
+  printf '['; first=1
+  for f in $(ls "$d"/*.json | sort -r); do [[ $first == 1 ]] || printf ','; first=0; cat "$f"; done
+  printf ']'
+elif [[ "$1" == "api" && "$2" =~ ^repos/([^/]+/[^/]+)/releases/tags/(.+)$ ]]; then
   f="$FAKE_GH_RELEASES/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}.json"
   [[ -f "$f" ]] || { echo "HTTP 404: Not Found" >&2; exit 1; }
   cat "$f"

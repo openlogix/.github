@@ -20,7 +20,7 @@ check() {
 # 2026-11-01; nothing names the IDE.
 check openlogix/logix-engine "2026-11-01 2026-11-10 "
 # Named by logix-ide's dev-channel.jsonc and prod-channel.jsonc, logix-engine's
-# dev-channel.jsonc and logix-studio's.
+# dev-channel.jsonc and logix-studio's, which names newest (2026-11-12).
 check openlogix/logix-catalog "2026-11-01 2026-11-05 2026-11-12 2026-11-30 "
 check openlogix/logix-core "2026-11-03 "
 check openlogix/logix-ide ""

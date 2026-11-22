@@ -58,6 +58,12 @@ expect latest-missing openlogix 1 "latest is required: there are prod releases"
 expect latest-old openlogix 1 "latest: 2026-11-19 isn't the newest prod release in assign.jsonc, 2026-11-20"
 expect latest-other-repo openlogix 1 "latest: openlogix/logix-ide isn't this repo, openlogix/logix-engine"
 expect dev-latest-on-prod openlogix 1 "latest: 2026-11-20 is on prod in assign.jsonc, not dev"
+# newest: the repo's newest release, checked as that release; never on prod
+# or in latest.
+expect newest openlogix 0 "dev-channel.jsonc: ok"
+expect newest-broken openlogix 1 "SHA256SUMS doesn't list logix-catalog-20261126.tgz"
+expect prod-newest openlogix 1 "logix-core: a prod config names a stable release, never newest"
+expect latest-newest openlogix 1 "latest/release: 'newest' does not match"
 expect index-mismatch openlogix 1 "should be the version folders, oldest first"
 expect no-index openlogix 1 "no index.jsonc"
 

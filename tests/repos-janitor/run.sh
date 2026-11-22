@@ -27,6 +27,7 @@ for text in \
   "**openlogix/logix-ide**" \
   "<details><summary><b>openlogix/logix-core</b> · " \
   "- Release should be valid" \
+  "    - [Why] Named by logix-studio [\`001/dev-channel.jsonc\`](https://github.com/openlogix/logix-studio/blob/main/remote-config/logix-studio/001/dev-channel.jsonc) (as newest)." \
   "    - [Why] Named by logix-ide [\`001/dev-channel.jsonc\`](https://github.com/openlogix/logix-ide/blob/main/remote-config/logix-ide/001/dev-channel.jsonc)." \
   "    - [Result] No \`BUILD-INFO.json\`." \
   "    - [Fix] [release](https://github.com/openlogix/logix-catalog/releases/tag/2026-11-01)" \

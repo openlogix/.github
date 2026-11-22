@@ -44,9 +44,9 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$"
         },
         "release": {
-          "description": "The release tag, yyyy-mm-dd. A prod config (prod-channel.jsonc) names only stable releases; other channels may name pre-releases.",
+          "description": "The release tag, yyyy-mm-dd, or newest: the repo's newest release (by tag, stable or pre-release, not drafts) when the config is read. A prod config (prod-channel.jsonc) names only stable releases, never newest; other channels may name pre-releases or newest.",
           "type": "string",
-          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}|newest)$"
         },
         "file": {
           "description": "The release file's name, a template: ${PLATFORM} is the platform, such as darwin-arm64, and ${YYYYMMDD} the release tag without dashes. Such as logix-core-${PLATFORM}-${YYYYMMDD}.tgz.",
