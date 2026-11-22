@@ -27,4 +27,6 @@
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-other-v1.json: No owner file schemas/logix-other-v1.json.
 ::error title=Schema copy should match its owner (openlogix/openlogix.github.io)::docs/schemas/logix-remote-config-v1.json: Differs.
 ::error title=Repo metadata should be valid (openlogix/openlogix.github.io)::.github/logix-repo-metadata.jsonc: Missing.
-repos-janitor: 8 repos, 29 failed, 79 passed.
+::error title=llms.txt and its links should resolve (openlogix/openlogix.github.io)::https://www.openlogix.org/logix-ide/ai-agents/#old-section: No anchor #old-section on the page.
+::error title=llms.txt and its links should resolve (openlogix/openlogix.github.io)::https://www.openlogix.org/logix-ide/old-page/: Answers 404.
+repos-janitor: 8 repos, 31 failed, 83 passed.

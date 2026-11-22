@@ -1,6 +1,6 @@
 #!/bin/bash
 # Tests repos-janitor/janitor.py on the fixture org in org/, with a fake gh
-# that answers from it (fake-gh/gh) and repo pages from org/pages/. Each check has a case there that fires;
+# that answers from it (fake-gh/gh) and repo pages from org/pages/ and web pages from org/web/. Each check has a case there that fires;
 # the printed findings must be exactly expected-output.txt, and the summary
 # page must list what passed and link where to fix each problem. Run from
 # anywhere; needs python3 with jsonschema. Used by actions-test.yaml.
@@ -9,7 +9,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo="$here/../.."
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-export PATH="$here/fake-gh:$PATH" FAKE_GH_ORG="$here/org" JANITOR_PAGES="$here/org/pages" JANITOR_NOW="2026-11-14T03:00:00Z"
+export PATH="$here/fake-gh:$PATH" FAKE_GH_ORG="$here/org" JANITOR_PAGES="$here/org/pages" JANITOR_WEB="$here/org/web" JANITOR_NOW="2026-11-14T03:00:00Z"
 out="$(python3 "$repo/repos-janitor/janitor.py" --summary "$tmp/summary.md" --results "$tmp/results.json" 2>&1)"
 status=$?
 failures=0
@@ -20,7 +20,7 @@ if [[ "$out" != "$(cat "$here/expected-output.txt")" ]]; then
 fi
 # The summary: counts, problems with fix links, and the passed items.
 for text in \
-  "❌&nbsp;&nbsp; **29 failed, 79 passed** · 8 repos · 2026-11-14 03:00 UTC" \
+  "❌&nbsp;&nbsp; **31 failed, 83 passed** · 8 repos · 2026-11-14 03:00 UTC" \
   "### Failed" \
   "### Passed" \
   "### Verification results" \
@@ -76,6 +76,11 @@ for text in \
   "    - [Result] No workflows." \
   "- Org lists should include the repo" \
   "    - [Result] Mismatch: not in the org page's repos table." \
+  "- llms.txt and its links should resolve" \
+  "    - [Why] Linked from \`llms.txt\`." \
+  "    - [Result] No anchor \`#old-section\` on the page." \
+  "    - [Result] Answers 404." \
+  "    - [Fix] [llms.txt](https://github.com/openlogix/openlogix.github.io/blob/main/docs/llms.txt) · [its docs](https://github.com/openlogix/logix-ide/tree/main/docs)" \
   "    - [Result] Mismatch: \`test.yaml\` is labeled \`engine-test\` in the website Status, \`test\` in its README."; do
   grep -qF -- "$text" "$tmp/summary.md" || fail "the summary has no \"$text\""
 done

@@ -19,8 +19,9 @@ read-only. Writes --summary (Markdown, for the run's
 summary page) and --results (JSON, for tools); prints a GitHub annotation
 per failed instance. The exit status is 1 if any requirement failed.
 
-For tests: JANITOR_NOW (an ISO time) sets the current time, and JANITOR_PAGES
-a folder of <repo>.html files in place of the repos' pages on github.com.
+For tests: JANITOR_NOW (an ISO time) sets the current time, JANITOR_PAGES
+a folder of <repo>.html files in place of the repos' pages on github.com, and
+JANITOR_WEB a folder of web pages in place of the web (see web_page).
 """
 
 import argparse
@@ -31,6 +32,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -77,6 +80,12 @@ BANNER = re.compile(r'^<picture>\s*<source media="\(prefers-color-scheme: dark\)
                     r'srcset="' + re.escape(SITE) + r'/brand/readme/([a-z-]+)-dark\.svg">\s*'
                     r'<img alt="[^"]+" src="' + re.escape(SITE) + r'/brand/readme/([a-z-]+)-light\.svg" '
                     r'height="96">\s*</picture>\s*<br>')
+# The site's guide for AI agents (the website repo's CLAUDE.md, llms.txt):
+# Logix Engine's MCP instructions send agents there, so it and its links must
+# resolve, and it starts with a comment saying to keep it stable.
+LLMS_TXT = f"{SITE}/llms.txt"
+LLMS_COMMENT = "stable and backward compatible"
+MD_LINK = re.compile(r"\]\((https?://[^)\s]+)\)")
 # A workflow's triggers that make it run on its own (else it's reusable).
 OWN_TRIGGERS = re.compile(r"\b(push|pull_request|pull_request_target|schedule|workflow_dispatch|"
                           r"workflow_run|repository_dispatch|release)\b")
@@ -109,6 +118,7 @@ REQUIREMENTS = {
     "readme-header-should-be-standard": "README header should be standard",
     "readme-badges-should-match-workflows": "README badges should match the workflows",
     "org-lists-should-include-repo": "Org lists should include the repo",
+    "llms-txt-should-resolve": "llms.txt and its links should resolve",
 }
 
 
@@ -242,6 +252,38 @@ def repo_page(repo: str) -> str | None:
             return r.read().decode("utf-8", "replace")
     except OSError:
         return None
+
+
+_web: dict = {}
+
+
+def web_page(url: str) -> tuple[int, str]:
+    """A web page's HTTP status and text, following redirects (read once);
+    status 0 if it can't be reached, after one retry. For tests, JANITOR_WEB
+    is a folder with a file per page, <host>/<path> (index.html for a path
+    ending in /); a missing file is a 404."""
+    if url in _web:
+        return _web[url]
+    web = os.environ.get("JANITOR_WEB")
+    if web:
+        rest = url.split("://", 1)[1]
+        f = Path(web) / (rest + "index.html" if rest.endswith("/") else rest)
+        _web[url] = (200, f.read_text()) if f.is_file() else (404, "")
+        return _web[url]
+    for attempt in range(2):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "repos-janitor"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                _web[url] = (r.status, r.read().decode("utf-8", "replace"))
+                break
+        except urllib.error.HTTPError as e:
+            _web[url] = (e.code, "")
+            break
+        except OSError:
+            _web[url] = (0, "")
+            if attempt == 0:
+                time.sleep(5)
+    return _web[url]
 
 
 def blob(repo: str, branch: str, path: str) -> str:
@@ -637,6 +679,45 @@ def check_schemas(repos: dict[str, Repo], report: Report) -> None:
         inst.because(f"Its owner: {owner.short} [`schemas/{name}`]({original}).").link("owner's file", original)
         same = raw(site.name, path, site.branch) == raw(owner.name, f"schemas/{name}", owner.branch)
         inst.verdict(same, "Matches." if same else "Differs.")
+
+
+def check_llms_txt(repos: dict[str, Repo], report: Report) -> None:
+    """llms-txt-should-resolve: the website's llms.txt answers, starts with
+    its keep-stable comment, and every link in it answers (with its anchor,
+    if it has one)."""
+    site = repos.get(f"{ORG}/{WEBSITE}")
+    if site is None:
+        return
+    source = blob(site.name, site.branch, "docs/llms.txt")
+    inst = report.require(site.name, "llms-txt-should-resolve", LLMS_TXT, f"[`llms.txt`]({LLMS_TXT})", "llms.txt")
+    inst.because("Logix Engine's MCP instructions send AI agents to it.").link("file", source)
+    status, text = web_page(LLMS_TXT)
+    if status != 200:
+        inst.verdict(False, f"Answers {status}." if status else "Can't be reached.")
+        return
+    head = text.lstrip()
+    comment = head.split("-->", 1)[0] if head.startswith("<!--") else ""
+    if LLMS_COMMENT not in " ".join(comment.split()):
+        inst.verdict(False, "No keep-stable comment at its top.")
+    else:
+        inst.verdict(True, "Answers 200.")
+    for url in dict.fromkeys(MD_LINK.findall(text)):
+        page, _, anchor = url.partition("#")
+        link = report.require(site.name, "llms-txt-should-resolve", url, f"[{url}]({url})", url, url=url)
+        link.because("Linked from `llms.txt`.").link("llms.txt", source)
+        # The repo whose docs a www.openlogix.org/<repo>/ page comes from.
+        first = page.split(f"{SITE}/", 1)[1].split("/", 1)[0] if page.startswith(f"{SITE}/") else ""
+        if f"{ORG}/{first}" in repos:
+            link.link("its docs", f"https://github.com/{ORG}/{first}/tree/{repos[f'{ORG}/{first}'].branch}/docs")
+        elif page.startswith(f"{SITE}/"):
+            link.link("website", f"https://github.com/{site.name}/tree/{site.branch}/docs")
+        status, html = web_page(page)
+        if status != 200:
+            link.verdict(False, f"Answers {status}." if status else "Can't be reached.")
+        elif anchor and not re.search(r"""\bid=["']?""" + re.escape(anchor) + r"""["'\s>]""", html):
+            link.verdict(False, f"No anchor `#{anchor}` on the page.")
+        else:
+            link.verdict(True, "Answers 200.")
 
 
 def check_runs(repo: Repo, report: Report) -> None:
@@ -1036,6 +1117,7 @@ def main() -> int:
     for repo in sorted(repos.values(), key=lambda r: r.name):
         check_latest(repo, reach, report)
     check_schemas(repos, report)
+    check_llms_txt(repos, report)
 
     res = json.dumps(results(report), indent=2)
     Path(args.results).write_text(res + "\n")
