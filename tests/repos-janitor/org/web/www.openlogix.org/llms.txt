@@ -1,0 +1,11 @@
+<!--
+  AI agents read this file. Keep its address and structure stable and
+  backward compatible.
+-->
+# Open Logix
+
+- [Using Logix IDE with an AI agent](https://www.openlogix.org/logix-ide/ai-agents/)
+- [Its project model](https://www.openlogix.org/logix-ide/ai-agents/#the-project-model)
+- [A section that moved](https://www.openlogix.org/logix-ide/ai-agents/#old-section)
+- [Product page](https://www.openlogix.org/engine/)
+- [A page that moved](https://www.openlogix.org/logix-ide/old-page/)
