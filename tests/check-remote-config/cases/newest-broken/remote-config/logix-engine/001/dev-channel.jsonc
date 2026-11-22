@@ -1,0 +1,10 @@
+{
+  "$schema": "https://www.openlogix.org/schemas/logix-remote-config-v1.json",
+  "dependencies": {
+    "x": {
+      "repo": "openlogix/logix-catalog",
+      "release": "newest",
+      "file": "logix-catalog-${YYYYMMDD}.tgz"
+    }
+  }
+}

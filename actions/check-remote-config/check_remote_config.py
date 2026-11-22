@@ -81,6 +81,21 @@ def gh(*args: str) -> tuple[int, str]:
     return r.returncode, r.stdout if r.returncode == 0 else r.stderr
 
 
+NEWEST = "newest"
+DATE_TAG = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+
+
+def newest_release(repo: str) -> tuple[str | None, str]:
+    """The tag `newest` stands for: the repo's newest date-tagged release,
+    stable or pre-release, not drafts (the Remote updates rule in the website
+    repo's CLAUDE.md). Returns (tag, "") or (None, the error)."""
+    status, out = gh("api", f"repos/{repo}/releases?per_page=30")
+    if status != 0:
+        return None, f"can't list {repo}'s releases ({out.strip()})"
+    tags = [r["tag_name"] for r in json.loads(out) if not r.get("draft") and DATE_TAG.match(r["tag_name"])]
+    return (max(tags), "") if tags else (None, f"{repo} has no releases")
+
+
 def check_dependency(
     name: str, dep: dict, platforms: list[str], owner: str, require_stable: bool
 ) -> list[str]:
@@ -88,6 +103,12 @@ def check_dependency(
     errors = []
     if owner and repo.split("/")[0] != owner:
         errors.append(f"{name}: {repo} isn't in {owner} (only allowed off main)")
+    if tag == NEWEST:
+        if require_stable:
+            return errors + [f"{name}: a prod config names a stable release, never newest"]
+        tag, problem = newest_release(repo)
+        if tag is None:
+            return errors + [f"{name}: newest: {problem}"]
     status, out = gh("api", f"repos/{repo}/releases/tags/{tag}")
     if status != 0:
         return errors + [f"{name}: no release {tag} in {repo} ({out.strip()})"]

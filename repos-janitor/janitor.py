@@ -480,6 +480,16 @@ def check_configs(repo: Repo, report: Report) -> list[dict]:
     return entries
 
 
+def resolve_newest(entries: list[dict], repos: dict[str, Repo]) -> None:
+    """A config entry naming "newest" (not on prod) stands for its repo's
+    newest date-tagged release now: the checks look at that one."""
+    for e in entries:
+        dep = repos.get(e.get("repo", ""))
+        if e.get("release") == "newest" and dep is not None and dep.releases():
+            e["release"] = max(r["tag_name"] for r in dep.releases())
+            e["newest"] = True
+
+
 def check_pins(repo: Repo, entries: list[dict], repos: dict[str, Repo], report: Report) -> None:
     """dev-should-not-lag-behind-prod: a dev config naming an older release
     than its version's prod config (a dev file left over after a promotion)."""
@@ -523,6 +533,8 @@ def check_releases(repos: dict[str, Repo], entries_by_repo: dict[str, list[dict]
             tag = e.get("release", "")
             cfg = config_name(e["config"])
             named = f"Named by {repo.short} [`{cfg}`]({blob(repo.name, repo.branch, e['config'])})"
+            if e.get("newest"):
+                named += " (as newest)"
             req_release(dep, tag, report, "release-should-be-valid").because(named + ".")
             if cfg.endswith("/prod-channel.jsonc"):
                 req_release(dep, tag, report, "release-should-be-stable").because(
@@ -1143,6 +1155,7 @@ def main() -> int:
         check_type(repo, report)
         check_tags(repo, report)
         entries_by_repo[repo.name] = check_configs(repo, report)
+        resolve_newest(entries_by_repo[repo.name], repos)
         check_pins(repo, entries_by_repo[repo.name], repos, report)
         check_runs(repo, report)
     check_releases(repos, entries_by_repo, report)

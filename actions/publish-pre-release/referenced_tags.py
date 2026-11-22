@@ -82,6 +82,15 @@ def main() -> None:
             for dep in named:
                 if isinstance(dep, dict) and dep.get("repo") == target and dep.get("release"):
                     tags.add(dep["release"])
+    # A config naming "newest" keeps whatever release that is now (always
+    # among the newest ones, which the policy keeps anyway).
+    if "newest" in tags:
+        tags.discard("newest")
+        releases = json.loads(gh_api(f"repos/{target}/releases?per_page=30"))
+        dated = [r["tag_name"] for r in releases
+                 if not r.get("draft") and re.match(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$", r["tag_name"])]
+        if dated:
+            tags.add(max(dated))
     for tag in sorted(tags):
         print(tag)
 

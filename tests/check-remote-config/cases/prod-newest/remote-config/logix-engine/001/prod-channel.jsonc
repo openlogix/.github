@@ -1,0 +1,11 @@
+{
+  "$schema": "https://www.openlogix.org/schemas/logix-remote-config-v1.json",
+  "latest": { "repo": "openlogix/logix-engine", "release": "2026-11-20" },
+  "dependencies": {
+    "logix-core": {
+      "repo": "openlogix/logix-core",
+      "release": "newest",
+      "file": "logix-core-${PLATFORM}-${YYYYMMDD}.tgz"
+    }
+  }
+}
