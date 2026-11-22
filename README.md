@@ -43,17 +43,18 @@ Composite actions in [actions/](actions), and one reusable workflow, used from t
 | `publish-pre-release` | A release workflow's end: checksums, the standard release text, the day's pre-release made again from scratch, and the cleanup |
 | `check-platform` | Fails unless the runner has the given OS and architecture |
 | `scan-files-for-viruses` | Scans files, including inside archives, with ClamAV |
-| `check-remote-config` | Checks a repo's remote configs (`remote-config/<product>/`: `index.jsonc` and a folder per config version, `<NNN>/`, with `assign.jsonc` and a `<channel>-channel.jsonc` per channel): the schemas, the channels, `latest`, and that every named release exists, has its files, and is stable in `prod-channel.jsonc` |
+| `check-remote-config` | Checks a repo's remote configs (`remote-config/<product>/`: `index.jsonc` and a folder per config version, `<NNN>/`, with `assign.jsonc` and a `<channel>-channel.jsonc` per channel): the schemas, the channels, `latest`, and that every named release exists, has its files, and is stable in `prod-channel.jsonc` (outside prod, a dependency may name `newest`, its repo's newest release) |
+| `list-config-channels` | Lists the channels of a product's newest config version folder, for a test matrix |
 | `assert-step-failed` | Fails unless an earlier step failed, for testing expected failures |
 | [`publish-docs.yaml`](.github/workflows/publish-docs.yaml) (reusable workflow) | Builds a repo's MkDocs site and deploys it to its GitHub Pages |
 
-The pre-release policy (pre-releases are kept about 5 days unless made stable) is set in one place, [`actions/release-policy.sh`](actions/release-policy.sh).
+The pre-release policy (each repo keeps its newest 5 pre-releases, plus any a remote config on `main` names; stable releases are never deleted) is set in one place, [`actions/release-policy.sh`](actions/release-policy.sh).
 
 [actions-test.yaml](.github/workflows/actions-test.yaml) tests every action on each change and daily.
 
 ## repos-janitor
 
-[repos-janitor.yaml](.github/workflows/repos-janitor.yaml) checks across the Open Logix repos every 6 hours what no single repo's CI can see, as requirements (as Apio's janitor): remote configs valid, the releases they name valid and (for prod) stable, each repo's Latest right for its type, dev configs not behind prod, release tags that are dates, the website's schema copies, every repo's daily builds, and each repo's type in its `.github/logix-repo-metadata.jsonc`. Its run summary lists what failed, each with why it applies, the result and links to fix it, then what passed; the run, and its badge above, go red on any failure. It only reads, and only reports for now.
+[repos-janitor.yaml](.github/workflows/repos-janitor.yaml) checks across the Open Logix repos every 6 hours what no single repo's CI can see, as requirements (as Apio's janitor): remote configs valid, the releases they name valid and (for prod) stable, each repo's Latest right for its type, dev configs not behind prod, release tags that are dates, the website's schema copies, every repo's daily builds (by the newest finished run), each repo's type in its `.github/logix-repo-metadata.jsonc`, its settings, sidebar, About and standard files, its README header and status badges, the org lists, and the website's `llms.txt`. Its run summary lists what failed, each with why it applies, the result and links to fix it, then what passed; the run, and its badge above, go red on any failure. It only reads, and only reports for now.
 
 ## Versions
 

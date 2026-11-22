@@ -41,9 +41,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 ORG = "openlogix"
-# The platforms remote configs must serve. Add windows-x86-64 and
-# linux-x86-64 with Milestones 3 and 4.
-PLATFORMS = ["darwin-arm64"]
+# The platforms remote configs must serve (Milestones 3 and 4 added
+# Windows and Linux).
+PLATFORMS = ["darwin-arm64", "windows-x86-64", "linux-x86-64"]
 # A scheduled workflow that hasn't run for this long fails (GitHub turns off
 # a public repo's schedules after 60 days without activity).
 RUN_MAX_AGE = dt.timedelta(hours=26)
@@ -72,7 +72,11 @@ STANDARD_FILES = ["README.md", "LICENSE-MIT", "LICENSE-APACHE"]
 # CLAUDE.md.
 PLACEHOLDER_FILES = set(STANDARD_FILES) | {METADATA}
 # Each platform's icon in README headers.
-PLATFORM_ICONS = {"darwin-arm64": f"{SITE}/brand/readme/macos.svg"}
+PLATFORM_ICONS = {
+    "darwin-arm64": f"{SITE}/brand/readme/macos.svg",
+    "windows-x86-64": f"{SITE}/brand/readme/windows.svg",
+    "linux-x86-64": f"{SITE}/brand/readme/linux.svg",
+}
 LICENSE_BADGE = "[![License: MIT or Apache 2.0](https://img.shields.io/badge/License-MIT%20or%20Apache%202.0-blue)]("
 STATUS_BADGE = re.compile(r"\[!\[([^\]]*)\]\((https://img\.shields\.io/github/actions/workflow/status/"
                           r"([^/]+/[^/]+)/([^?)]+)\??([^)]*))\)\]\(([^)]*)\)")
