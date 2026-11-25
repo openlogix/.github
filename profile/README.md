@@ -31,8 +31,8 @@ Easy-to-use open source tools for FPGA design. All built on one engine. [www.ope
 
 | Repo | What it is | Status |
 | --- | --- | --- |
-| [logix‑ide](https://github.com/openlogix/logix-ide) | Logix IDE. The Arduino experience, for FPGAs. | Previews available · Release Q4 2026 |
-| [logix‑engine](https://github.com/openlogix/logix-engine) | Logix Engine. One open engine to build and test FPGA designs and program boards, for any IDE or AI agent. | Previews available · Release Q4 2026 |
+| [logix‑ide](https://github.com/openlogix/logix-ide) | Logix IDE. The Arduino experience, for FPGAs. | Available now |
+| [logix‑engine](https://github.com/openlogix/logix-engine) | Logix Engine. One open engine to build and test FPGA designs and program boards, for any IDE or AI agent. | Available now |
 
 ### Packages
 
