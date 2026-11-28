@@ -36,7 +36,7 @@ A workflow here that checks what no single repo's CI can see and reports problem
   | `latest-should-be-used` | a dependency's Latest no recommended install reaches |
   | `latest-should-be-prod` | an installable's Latest (or none: passes while no release is prod) |
   | `dev-should-not-lag-behind-prod` | a `dev-channel.jsonc` entry (a dependency or `latest`) naming an older release than its version's `prod-channel.jsonc` (a dev file left over after a promotion: delete it, so dev uses prod's, or repin it) |
-  | `schema-copy-should-match` | a website `docs/schemas/` file |
+  | `schema-copy-should-match` | a website `docs/schemas/` file, equal to its owner's `schemas/` file (owners: logix-catalog, logix-engine, this repo) |
   | `daily-build-should-pass` | a scheduled workflow's newest finished run on `main`, whatever started it (a scheduled run, a push or a manual run; not pull requests), skipping cancelled runs (such as a scheduled run a newer push cancelled), but only cancelled runs for more than 12 hours fails (`CANCELLED_MAX_AGE`; by then the run that cancelled it, or one that cancelled that, has finished; the user's rule, 2026-11-22: it was the last scheduled run only, so a scheduled run cancelled by a push failed with nothing to fix) |
   | `daily-build-should-be-recent` | its last scheduled run, in the last 26 hours (scheduled runs only: they show the schedule is still on; GitHub turns off a public repo's schedules after 60 days without activity) |
   | `repo-metadata-should-be-valid` | a repo's `.github/logix-repo-metadata.jsonc`: present, valid against `schemas/logix-repo-metadata-v1.json` (`type`: `installable`, `dependency`, `no-releases`) |

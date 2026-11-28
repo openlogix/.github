@@ -49,7 +49,7 @@ PLATFORMS = ["darwin-arm64", "windows-x86-64", "linux-x86-64"]
 RUN_MAX_AGE = dt.timedelta(hours=26)
 WEBSITE = "openlogix.github.io"
 # The repos whose schemas/ own the website's docs/schemas/ copies.
-SCHEMA_OWNERS = ["logix-catalog", ".github"]
+SCHEMA_OWNERS = ["logix-catalog", "logix-engine", ".github"]
 # A version folder's files: assign.jsonc and a config file per channel,
 # <channel>-channel.jsonc.
 CONFIG_FILE = re.compile(r"^remote-config/([^/]+)/([^/]+)/([^/]+)$")
